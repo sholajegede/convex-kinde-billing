@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.6
+
+- fix: plan name from Kinde payload, renew date parsing, bg overflow
+
 ## 0.1.5
 
 - replace httpHandler with KindeBilling class webhook, require KINDE_ISSUER_URL
