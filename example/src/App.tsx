@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
 
@@ -61,6 +61,7 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
   const subscription = useQuery(api.example.getSubscription, { customerId });
   const hasActive = useQuery(api.example.hasActivePlan, { customerId });
   const activePlan = useQuery(api.example.getActivePlan, { customerId });
+  const hasFeature = useQuery(api.example.hasFeature, { customerId, featureKey: "pro" });
   const loading = subscription === undefined;
 
   const periodEnd = subscription?.currentPeriodEnd
@@ -112,10 +113,11 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
                 color={subscription.status === "cancelled" ? "#6b7280" : "#10b981"}
               />
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
               {[
                 { label: "getSubscription()", value: `status: "${subscription.status}"` },
                 { label: "getActivePlan()", value: activePlan ? `planName: "${activePlan.planName}"` : "null" },
+                { label: 'hasFeature("pro")', value: String(hasFeature) },
               ].map(({ label, value }) => (
                 <div key={label} style={{ padding: "0.6rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem" }}>
                   <span style={{ color: "#9ca3af" }}>{label}</span>
@@ -136,6 +138,88 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
             )}
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function BillingActionsPanel({ customerId }: { customerId: string }) {
+  const getPortalUrl = useAction(api.example.getPortalUrl);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const kindeClientId = import.meta.env.VITE_KINDE_CLIENT_ID as string;
+  const kindeIssuerUrl = import.meta.env.VITE_KINDE_ISSUER_URL as string;
+
+  const handleManageBilling = async () => {
+    setPortalLoading(true);
+    try {
+      const { url } = await getPortalUrl({
+        userId: customerId,
+        returnUrl: window.location.href,
+      });
+      window.location.href = url;
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
+
+  const checkoutUrl = kindeIssuerUrl && kindeClientId
+    ? `${kindeIssuerUrl}/oauth2/auth?response_type=code&client_id=${kindeClientId}&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=openid%20profile%20email&plan_interest=customer_pro_plan`
+    : null;
+
+  return (
+    <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginBottom: "1rem" }}>
+      <div style={{ padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
+        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Billing Actions</div>
+        <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 2 }}>
+          Kinde-hosted checkout and self-serve billing portal
+        </div>
+      </div>
+      <div style={{ padding: "1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+        {checkoutUrl && (
+          <a
+            href={checkoutUrl}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "0.6rem 1.25rem", borderRadius: 8,
+              background: "#6366f1", color: "#fff",
+              fontSize: "0.78rem", fontWeight: 700,
+              textDecoration: "none", fontFamily: "'Sora', sans-serif",
+              border: "1.5px solid #6366f1",
+            }}
+          >
+            Upgrade to Pro →
+          </a>
+        )}
+        <button
+          onClick={handleManageBilling}
+          disabled={portalLoading}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "0.6rem 1.25rem", borderRadius: 8,
+            background: "#fff", color: "#374151",
+            fontSize: "0.78rem", fontWeight: 700,
+            cursor: portalLoading ? "not-allowed" : "pointer",
+            fontFamily: "'Sora', sans-serif",
+            border: "1.5px solid #e5e7eb",
+            opacity: portalLoading ? 0.6 : 1,
+          }}
+        >
+          {portalLoading ? "Loading..." : "Manage Billing"}
+        </button>
+        <div style={{
+          width: "100%", marginTop: "0.5rem",
+          padding: "0.65rem 0.85rem", background: "#f9fafb",
+          borderRadius: 8, border: "1px solid #e5e7eb",
+          fontSize: "0.68rem", color: "#9ca3af",
+          fontFamily: "'JetBrains Mono', monospace",
+        }}>
+          <span style={{ color: "#6366f1" }}>getCheckoutUrl()</span>
+          {" "}→ Kinde-hosted checkout with plan_interest param ·{" "}
+          <span style={{ color: "#0891b2" }}>getPortalUrl()</span>
+          {" "}→ one-time self-serve portal link via M2M
+        </div>
       </div>
     </div>
   );
@@ -253,7 +337,7 @@ export default function App() {
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { min-height: 100%; background: #f1f5f9; }
-        body { background: #f1f5f9; color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        body { color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
         #root { width: 100%; min-height: 100vh; background: #f1f5f9; display: flex; justify-content: center; }
         input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important; }
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
@@ -262,6 +346,7 @@ export default function App() {
         @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.5} }
         ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
         button:hover:not(:disabled){ opacity:0.85; }
+        a:hover { opacity: 0.85; }
       `}</style>
 
       <div style={{ width: "100%", minHeight: "100vh", background: "#f1f5f9", display: "flex", justifyContent: "center" }}>
@@ -276,7 +361,7 @@ export default function App() {
               convex-kinde-billing
             </h1>
             <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "1rem" }}>
-              Kinde billing state, synced into Convex in real time via webhooks.
+              Add Kinde billing to your Convex app. Reactive subscriptions, checkout, portal, and feature gating — all via webhooks.
             </p>
             <div style={{
               display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
@@ -287,9 +372,7 @@ export default function App() {
               {[
                 { t: "Kinde fires webhook", c: "#6366f1" },
                 { t: "→", c: "#9ca3af" },
-                { t: "kindeBilling.webhookHandler", c: "#0891b2" },
-                { t: "→", c: "#9ca3af" },
-                { t: "handleWebhookEvent()", c: "#059669" },
+                { t: "webhookHandler", c: "#0891b2" },
                 { t: "→", c: "#9ca3af" },
                 { t: "Convex DB updated", c: "#059669" },
                 { t: "→", c: "#9ca3af" },
@@ -346,10 +429,14 @@ export default function App() {
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.15s both" }}>
-            <UsagePanel customerId={customerId} />
+            <BillingActionsPanel customerId={customerId} />
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.2s both" }}>
+            <UsagePanel customerId={customerId} />
+          </div>
+
+          <div style={{ animation: "fadeUp 0.4s ease 0.25s both" }}>
             <EventLogPanel customerId={customerId} />
           </div>
 
@@ -357,7 +444,7 @@ export default function App() {
             marginTop: "1.5rem", padding: "0.75rem 1rem",
             background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
             fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace",
-            animation: "fadeUp 0.4s ease 0.25s both",
+            animation: "fadeUp 0.4s ease 0.3s both",
           }}>
             All state is stored in Convex and updates reactively via useQuery. No polling.
             In production, Kinde fires the webhooks automatically.

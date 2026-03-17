@@ -1,6 +1,6 @@
 # convex-kinde-billing
 
-**Sync Kinde billing events into your Convex database in real-time.** Subscribe to plan changes, payment events, and metered usage — all reactive, all queryable, zero boilerplate.
+**Add Kinde billing to your Convex app.** Reactive subscriptions, checkout, self-serve portal, and feature gating.
 
 [![npm version](https://img.shields.io/npm/v/convex-kinde-billing)](https://www.npmjs.com/package/convex-kinde-billing)
 [![Convex Component](https://www.convex.dev/components/badge/sholajegede/convex-kinde-billing)](https://www.convex.dev/components/sholajegede/convex-kinde-billing)
@@ -12,22 +12,41 @@ const kindeBilling = new KindeBilling(components.convexKindeBilling, {
 });
 
 // Is this user on an active plan?
-const active = await kindeBilling.hasActivePlan(ctx, { customerId: "kp_abc123" });
+const active = await kindeBilling.hasActivePlan(ctx, { customerId: "customer_abc123" });
 
-// What plan are they on?
-const plan = await kindeBilling.getActivePlan(ctx, { customerId: "kp_abc123" });
+// Does this user have access to a specific feature?
+const hasAccess = await kindeBilling.hasFeature(ctx, { customerId: "customer_abc123", featureKey: "pro" });
 
-// Full billing history
-const events = await kindeBilling.listBillingEvents(ctx, { customerId: "kp_abc123" });
+// Generate a checkout URL to send users to Kinde's hosted billing
+const checkoutUrl = kindeBilling.getCheckoutUrl({
+  clientId: process.env.KINDE_CLIENT_ID!,
+  redirectUri: "https://yourapp.com/dashboard",
+  planKey: "customer_pro_plan",
+});
+
+// Generate a one-time self-serve billing portal link
+const { url } = await kindeBilling.getPortalUrl(ctx, {
+  userId: "kp_abc123",
+  returnUrl: "https://yourapp.com/settings",
+});
 ```
 
 ## What this does
 
 Kinde fires webhook events every time a billing action occurs — plan assigned, payment succeeded, subscription cancelled. Without this component, you have to write and maintain your own webhook handler, JWT verification, database schema, and reactive queries.
 
-This component owns all of that. Drop it in, mount the webhook, and your Convex app immediately has reactive billing state — live-updating everywhere Convex data is used. No polling, no boilerplate.
+This component owns all of that. Drop it in, mount the webhook, and your Convex app immediately has:
+
+- **Reactive billing state** — subscription status, plan name, renewal date, live in Convex
+- **Feature gating** — `hasFeature()` and `hasActivePlan()` to gate any feature or route
+- **Checkout** — `getCheckoutUrl()` generates a Kinde-hosted checkout link with plan pre-selected
+- **Self-serve portal** — `getPortalUrl()` generates a one-time billing portal URL so users can manage or cancel their plan
+- **Metered usage** — usage records stored and queryable in real time
+- **React component** — `<ManageBillingButton>` drop-in portal button
 
 > **Webhook timing:** After a billing action occurs in Kinde, there is a short delay — usually a few seconds — before the webhook arrives and your Convex data updates. Once the webhook arrives, Convex's real-time reactivity propagates the change to all subscribers instantly.
+
+> **Note on `getPortalUrl`:** This method requires M2M credentials (`KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET`) because it calls the Kinde Management API server-side to generate a one-time portal URL. All other methods require only `KINDE_ISSUER_URL`.
 
 ## Table of Contents
 
@@ -35,6 +54,9 @@ This component owns all of that. Drop it in, mount the webhook, and your Convex 
 - [Quick Start](#quick-start)
 - [Setup](#setup)
 - [Usage](#usage)
+- [Checkout](#checkout)
+- [Self-Serve Portal](#self-serve-portal)
+- [React Components](#react-components)
 - [API Reference](#api-reference)
 - [Type Reference](#type-reference)
 - [Webhook Events](#webhook-events)
@@ -56,7 +78,7 @@ npm install convex-kinde-billing
 
 ## Quick Start
 
-Five steps to get billing state syncing into your Convex app.
+Five steps to add Kinde billing to your Convex app.
 
 ### 1. Add the component
 
@@ -71,12 +93,18 @@ app.use(convexKindeBilling);
 export default app;
 ```
 
-### 2. Set your environment variable
+### 2. Set environment variables
 ```bash
 npx convex env set KINDE_ISSUER_URL https://yourdomain.kinde.com
 ```
 
-Your Kinde issuer URL is your Kinde domain — find it in Kinde → **Settings → Applications → your app → Details**.
+If you want to use `getPortalUrl`, also set:
+```bash
+npx convex env set KINDE_M2M_CLIENT_ID your_m2m_client_id
+npx convex env set KINDE_M2M_CLIENT_SECRET your_m2m_client_secret
+```
+
+To get M2M credentials: Kinde → **Applications → Add application → Machine to machine** → copy Client ID and Client Secret → under **APIs**, enable the Kinde Management API.
 
 ### 3. Mount the webhook handler
 
@@ -122,7 +150,7 @@ export const kindeBilling = new KindeBilling(components.convexKindeBilling, {
 });
 ```
 
-Import `kindeBilling` from this file in any Convex function that needs billing queries.
+Import `kindeBilling` from this file in any Convex function that needs billing.
 
 ## Setup
 
@@ -130,18 +158,23 @@ Import `kindeBilling` from this file in any Convex function that needs billing q
 ```ts
 import { components } from "./_generated/api";
 import { KindeBilling } from "convex-kinde-billing";
-import { query } from "./_generated/server";
+import { query, action } from "./_generated/server";
 import { v } from "convex/values";
 
 export const kindeBilling = new KindeBilling(components.convexKindeBilling, {
   KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
 });
 
-// Gate features — use this in queries and mutations
 export const checkAccess = query({
   args: { customerId: v.string() },
   handler: async (ctx, { customerId }) =>
     kindeBilling.hasActivePlan(ctx, { customerId }),
+});
+
+export const getPortalUrl = action({
+  args: { userId: v.string(), returnUrl: v.optional(v.string()) },
+  handler: async (ctx, args) =>
+    kindeBilling.getPortalUrl(ctx, args),
 });
 ```
 
@@ -178,6 +211,17 @@ export const checkAccess = query({
 });
 // Returns: true | false
 // Returns false (never throws) when customerId doesn't exist yet
+```
+
+### Check if a customer has a specific feature
+```ts
+export const checkFeature = query({
+  args: { customerId: v.string(), featureKey: v.string() },
+  handler: async (ctx, args) => {
+    return await kindeBilling.hasFeature(ctx, args);
+  },
+});
+// Returns: true if customer is active and planId or planName contains featureKey
 ```
 
 ### Get the customer's current plan
@@ -257,6 +301,103 @@ export const accessAdvancedAnalytics = query({
 });
 ```
 
+## Checkout
+
+Kinde's checkout is hosted — you redirect users to a Kinde URL and they complete payment there. `getCheckoutUrl()` builds that URL with the plan pre-selected.
+```ts
+// In your frontend or a Convex action
+const checkoutUrl = kindeBilling.getCheckoutUrl({
+  clientId: process.env.KINDE_CLIENT_ID!,       // your Kinde app client ID
+  redirectUri: "https://yourapp.com/dashboard",  // where to send users after checkout
+  planKey: "customer_pro_plan",                  // Kinde plan key from your dashboard
+});
+
+// Redirect the user
+window.location.href = checkoutUrl;
+```
+
+You can also show a pricing table instead of pre-selecting a plan:
+```ts
+const checkoutUrl = kindeBilling.getCheckoutUrl({
+  clientId: process.env.KINDE_CLIENT_ID!,
+  redirectUri: "https://yourapp.com/dashboard",
+  pricingTableKey: "main_pricing_table",  // pricing table key from Kinde dashboard
+});
+```
+
+For B2B org sign-up:
+```ts
+const checkoutUrl = kindeBilling.getCheckoutUrl({
+  clientId: process.env.KINDE_CLIENT_ID!,
+  redirectUri: "https://yourapp.com/dashboard",
+  planKey: "customer_pro_plan",
+  isCreateOrg: true,
+});
+```
+
+After checkout, Kinde fires `customer.plan_assigned` and `customer.agreement_created` webhooks — your Convex billing state updates automatically.
+
+## Self-Serve Portal
+
+`getPortalUrl()` generates a one-time URL that sends users to Kinde's self-serve billing portal, where they can manage or cancel their subscription.
+```ts
+export const getBillingPortalUrl = action({
+  args: { userId: v.string(), returnUrl: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    return await kindeBilling.getPortalUrl(ctx, {
+      userId: args.userId,
+      returnUrl: args.returnUrl ?? "https://yourapp.com/settings",
+    });
+  },
+});
+// Returns: { url: string }
+// Redirect the user to url — it expires after one use
+```
+
+For B2B org billing portal:
+```ts
+return await kindeBilling.getPortalUrl(ctx, {
+  userId: args.userId,
+  orgCode: args.orgCode,
+  returnUrl: "https://yourapp.com/settings",
+});
+```
+
+> **Requires M2M credentials.** Set `KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET` in your Convex environment variables.
+
+## React Components
+
+### `ManageBillingButton`
+
+Drop-in button that calls `getPortalUrl` and redirects the user to the Kinde billing portal.
+```tsx
+import { ManageBillingButton } from "convex-kinde-billing/react";
+import { api } from "../convex/_generated/api";
+
+function SettingsPage({ userId }: { userId: string }) {
+  return (
+    <ManageBillingButton
+      getPortalUrl={api.billing.getPortalUrl}
+      userId={userId}
+      returnUrl={window.location.href}
+    >
+      Manage Billing
+    </ManageBillingButton>
+  );
+}
+```
+
+Props:
+
+| Prop | Type | Required | Description |
+|||||
+| `getPortalUrl` | `FunctionReference` | ✓ | Your Convex action that calls `kindeBilling.getPortalUrl` |
+| `userId` | `string` | ✓ | The Kinde user ID (`kp_xxx`) |
+| `returnUrl` | `string` | | URL to return to after the portal |
+| `orgCode` | `string` | | For B2B org billing portal |
+| `children` | `ReactNode` | | Button label (default: `"Manage Billing"`) |
+| `className` | `string` | | CSS class name |
+
 ## API Reference
 
 ### `KindeBilling` class
@@ -270,25 +411,25 @@ const kindeBilling = new KindeBilling(components.convexKindeBilling, {
 
 #### Constructor options
 
-| Option | Type | Description |
-||||
-| `KINDE_ISSUER_URL` | `string` | Your Kinde issuer URL e.g. `https://yourdomain.kinde.com` |
+| Option | Type | Required | Description |
+|||||
+| `KINDE_ISSUER_URL` | `string` | ✓ | Your Kinde issuer URL e.g. `https://yourdomain.kinde.com` |
 
 #### Methods
 
-| Method | Args | Returns | Description |
-|||||
-| `getSubscription` | `{ customerId: string }` | `Subscription \| null` | Full subscription record |
-| `hasActivePlan` | `{ customerId: string }` | `boolean` | Whether customer has `status === "active"` |
-| `getActivePlan` | `{ customerId: string }` | `PlanSummary \| null` | Current plan name, ID, and period end |
-| `listBillingEvents` | `{ customerId: string, limit?: number }` | `BillingEvent[]` | Billing webhook audit log, newest first |
-| `getUsage` | `{ customerId: string, meterId: string, limit?: number }` | `UsageRecord[]` | Metered usage records, newest first |
+| Method | Type | Args | Returns | Description |
+||||||
+| `webhookHandler` | HTTP action | — | — | Mount in `convex/http.ts` to receive Kinde billing webhooks |
+| `getCheckoutUrl` | sync | `{ clientId, redirectUri, planKey?, pricingTableKey?, isCreateOrg? }` | `string` | Build a Kinde-hosted checkout URL |
+| `getPortalUrl` | action | `{ userId, returnUrl?, orgCode? }` | `{ url: string }` | Generate a one-time self-serve billing portal URL (requires M2M) |
+| `getSubscription` | query | `{ customerId }` | `Subscription \| null` | Full subscription record |
+| `hasActivePlan` | query | `{ customerId }` | `boolean` | Whether customer has `status === "active"` |
+| `hasFeature` | query | `{ customerId, featureKey }` | `boolean` | Whether customer is active and on a plan matching featureKey |
+| `getActivePlan` | query | `{ customerId }` | `PlanSummary \| null` | Current plan name, ID, and period end |
+| `listBillingEvents` | query | `{ customerId, limit? }` | `BillingEvent[]` | Billing webhook audit log, newest first |
+| `getUsage` | query | `{ customerId, meterId, limit? }` | `UsageRecord[]` | Metered usage records, newest first |
 
-> All methods return `null`, `false`, or `[]` (never throw) when a customer has no data.
-
-#### `kindeBilling.webhookHandler`
-
-HTTP action to mount in `convex/http.ts`. Verifies and processes all incoming Kinde billing webhooks automatically.
+> All query methods return `null`, `false`, or `[]` (never throw) when a customer has no data.
 
 ## Type Reference
 
@@ -409,9 +550,11 @@ Kinde billing uses `customer_id` — a separate identifier from the auth `user_i
 
 When calling query methods pass the Kinde `customer_id` e.g. `customer_019865139a9b96b5bb666f8441f2d73c`. You can find it in Kinde → **Billing → Users → your user → Customer ID**.
 
+Note that `getCheckoutUrl` and `getPortalUrl` use the Kinde **auth** `user_id` (`kp_xxx`), not the billing `customer_id`. This is because checkout and portal are user-facing auth flows.
+
 ## Using with `kinde-sync`
 
-If you're also using [`@sholajegede/kinde-sync`](https://www.npmjs.com/package/@sholajegede/kinde-sync) note that `kinde-sync` uses the Kinde auth `user_id` (`kp_xxx`) while this component uses the Kinde billing `customer_id`. You can join them via the `user_id` field present in billing webhook payloads:
+If you're also using [`@sholajegede/kinde-sync`](https://www.npmjs.com/package/@sholajegede/kinde-sync) to sync Kinde users into Convex, the auth `user_id` from `kinde-sync` and the billing `customer_id` from this component are different identifiers. You can join them in one query using the `user_id` field present in billing webhook payloads:
 ```ts
 export const getUserWithBilling = query({
   args: { customerId: v.string() },
@@ -483,6 +626,8 @@ test("cancelled after agreement_cancelled", async () => {
 
 **Billing customer ID vs auth user ID.** Kinde uses separate IDs for billing (`customer_xxx`) and auth (`kp_xxx`). Always pass the billing `customer_id` to query methods.
 
+**`getPortalUrl` requires M2M credentials.** Only this method requires `KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET`. All other methods work with `KINDE_ISSUER_URL` alone.
+
 ## Troubleshooting
 
 **Webhook returns 401 "Invalid token"**
@@ -508,6 +653,9 @@ Confirm all 8 billing events are selected in Kinde's webhook settings.
 
 **Plan name shows as undefined**
 Make sure you're on the latest version — earlier versions didn't extract plan name from the nested `data.plan` object in Kinde's payload.
+
+**`getPortalUrl` throws "Missing required env vars"**
+Set `KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET` in the Convex dashboard under **Settings → Environment Variables**.
 
 **Component tables not visible in the Convex dashboard**
 Use the component selector dropdown at the top of the Data tab to switch to the `convexKindeBilling` namespace.

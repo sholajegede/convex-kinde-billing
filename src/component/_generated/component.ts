@@ -36,6 +36,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
+      getPortalUrl: FunctionReference<
+        "action",
+        "internal",
+        { orgCode?: string; returnUrl?: string; userId: string },
+        { url: string },
+        Name
+      >;
       getSubscription: FunctionReference<
         "query",
         "internal",
@@ -91,6 +98,13 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         "query",
         "internal",
         { customerId: string },
+        boolean,
+        Name
+      >;
+      hasFeature: FunctionReference<
+        "query",
+        "internal",
+        { customerId: string; featureKey: string },
         boolean,
         Name
       >;

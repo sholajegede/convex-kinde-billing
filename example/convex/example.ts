@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server.js";
+import { action, query, mutation } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
 import { KindeBilling } from "../../src/client/index.js";
 import { v } from "convex/values";
@@ -28,6 +28,13 @@ export const getActivePlan = query({
   },
 });
 
+export const hasFeature = query({
+  args: { customerId: v.string(), featureKey: v.string() },
+  handler: async (ctx, args) => {
+    return await kindeBilling.hasFeature(ctx, args);
+  },
+});
+
 export const listBillingEvents = query({
   args: { customerId: v.string() },
   handler: async (ctx, args) => {
@@ -39,6 +46,17 @@ export const getUsage = query({
   args: { customerId: v.string(), meterId: v.string() },
   handler: async (ctx, args) => {
     return await kindeBilling.getUsage(ctx, args);
+  },
+});
+
+export const getPortalUrl = action({
+  args: {
+    userId: v.string(),
+    returnUrl: v.optional(v.string()),
+    orgCode: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    return await kindeBilling.getPortalUrl(ctx, args);
   },
 });
 

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import {
+  action,
   mutation,
   query,
 } from "./_generated/server.js";
@@ -44,7 +45,7 @@ const usageRecordValidator = v.object({
   recordedAt: v.number(),
 });
 
-// ─── Public queries ───────────────────────────────────────────────────────────
+// ─── Queries ──────────────────────────────────────────────────────────────────
 
 export const getSubscription = query({
   args: { customerId: v.string() },
@@ -95,6 +96,23 @@ export const getActivePlan = query({
   },
 });
 
+export const hasFeature = query({
+  args: { customerId: v.string(), featureKey: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const sub = await ctx.db
+      .query("subscriptions")
+      .withIndex("by_customerId", (q) => q.eq("customerId", args.customerId))
+      .first();
+    if (!sub || sub.status !== "active") return false;
+    if (!sub.planId) return false;
+    return (
+      sub.planId.includes(args.featureKey) ||
+      (sub.planName?.toLowerCase().includes(args.featureKey.toLowerCase()) ?? false)
+    );
+  },
+});
+
 export const listBillingEvents = query({
   args: {
     customerId: v.string(),
@@ -128,7 +146,7 @@ export const getUsage = query({
   },
 });
 
-// ─── Public mutations ─────────────────────────────────────────────────────────
+// ─── Mutations ────────────────────────────────────────────────────────────────
 
 export const handleWebhookEvent = mutation({
   args: {
@@ -242,5 +260,67 @@ export const handleWebhookEvent = mutation({
     }
 
     return null;
+  },
+});
+
+// ─── Actions ──────────────────────────────────────────────────────────────────
+
+export const getPortalUrl = action({
+  args: {
+    userId: v.string(),
+    returnUrl: v.optional(v.string()),
+    orgCode: v.optional(v.string()),
+  },
+  returns: v.object({ url: v.string() }),
+  handler: async (_ctx, args) => {
+    const kindeDomain = process.env.KINDE_ISSUER_URL;
+    const clientId = process.env.KINDE_M2M_CLIENT_ID;
+    const clientSecret = process.env.KINDE_M2M_CLIENT_SECRET;
+
+    if (!kindeDomain || !clientId || !clientSecret) {
+      throw new Error(
+        "Missing required env vars: KINDE_ISSUER_URL, KINDE_M2M_CLIENT_ID, KINDE_M2M_CLIENT_SECRET",
+      );
+    }
+
+    const tokenRes = await fetch(`${kindeDomain}/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+        audience: `${kindeDomain}/api`,
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      throw new Error(`Failed to obtain M2M token: ${tokenRes.status} ${await tokenRes.text()}`);
+    }
+
+    const { access_token } = (await tokenRes.json()) as { access_token: string };
+
+    const body: Record<string, string> = {
+      user_id: args.userId,
+      sub_nav: "organization_billing",
+    };
+    if (args.orgCode) body.organization_code = args.orgCode;
+    if (args.returnUrl) body.return_url = args.returnUrl;
+
+    const portalRes = await fetch(`${kindeDomain}/api/v1/portal/generate_url`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${access_token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!portalRes.ok) {
+      throw new Error(`Failed to generate portal URL: ${portalRes.status} ${await portalRes.text()}`);
+    }
+
+    const data = (await portalRes.json()) as { url: string };
+    return { url: data.url };
   },
 });

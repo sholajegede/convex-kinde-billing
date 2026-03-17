@@ -81,12 +81,11 @@ export class KindeBilling {
         (plan?.code as string) ||
         (plan?.key as string) ||
         undefined;
-      const planId = rawPlanId;
       const planName = formatPlanName(rawPlanId);
 
       const rawPeriodEnd = data.invoice_due_on || data.next_billing_date;
       const currentPeriodEnd = rawPeriodEnd
-        ? new Date((rawPeriodEnd as string).replace(/([+-]\d{2})$/, '$1:00')).getTime() || undefined
+        ? new Date((rawPeriodEnd as string).replace(/([+-]\d{2})$/, "$1:00")).getTime() || undefined
         : undefined;
 
       await ctx.runMutation(component_.lib.handleWebhookEvent, {
@@ -94,7 +93,7 @@ export class KindeBilling {
         customerId,
         customerType: customerType as "user" | "org",
         payload: JSON.stringify(payload),
-        planId,
+        planId: rawPlanId,
         planName,
         agreementId: (data.agreement_id as string) || undefined,
         currentPeriodEnd,
@@ -109,6 +108,26 @@ export class KindeBilling {
     });
   }
 
+  getCheckoutUrl(args: {
+    clientId: string;
+    redirectUri: string;
+    planKey?: string;
+    pricingTableKey?: string;
+    isCreateOrg?: boolean;
+  }): string {
+    const domain = this.options.KINDE_ISSUER_URL;
+    const params = new URLSearchParams({
+      response_type: "code",
+      client_id: args.clientId,
+      redirect_uri: args.redirectUri,
+      scope: "openid profile email",
+    });
+    if (args.planKey) params.set("plan_interest", args.planKey);
+    if (args.pricingTableKey) params.set("pricing_table_key", args.pricingTableKey);
+    if (args.isCreateOrg) params.set("is_create_org", "true");
+    return `${domain}/oauth2/auth?${params.toString()}`;
+  }
+
   async getSubscription(ctx: RunQueryCtx, args: { customerId: string }) {
     return await ctx.runQuery(this.component.lib.getSubscription, args);
   }
@@ -121,18 +140,30 @@ export class KindeBilling {
     return await ctx.runQuery(this.component.lib.getActivePlan, args);
   }
 
+  async hasFeature(ctx: RunQueryCtx, args: { customerId: string; featureKey: string }): Promise<boolean> {
+    return await ctx.runQuery(this.component.lib.hasFeature, args);
+  }
+
   async listBillingEvents(ctx: RunQueryCtx, args: { customerId: string; limit?: number }) {
     return await ctx.runQuery(this.component.lib.listBillingEvents, args);
   }
 
-  async getUsage(
-    ctx: RunQueryCtx,
-    args: { customerId: string; meterId: string; limit?: number },
-  ) {
+  async getUsage(ctx: RunQueryCtx, args: { customerId: string; meterId: string; limit?: number }) {
     return await ctx.runQuery(this.component.lib.getUsage, args);
+  }
+
+  async getPortalUrl(
+    ctx: RunActionCtx,
+    args: { userId: string; returnUrl?: string; orgCode?: string },
+  ): Promise<{ url: string }> {
+    return await ctx.runAction(this.component.lib.getPortalUrl, args);
   }
 }
 
 type RunQueryCtx = {
   runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
+};
+
+type RunActionCtx = {
+  runAction: GenericActionCtx<GenericDataModel>["runAction"];
 };
