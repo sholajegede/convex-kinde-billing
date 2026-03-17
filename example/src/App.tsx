@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
 
@@ -17,50 +17,6 @@ const STATUS_LABEL: Record<string, string> = {
   unpaid: "Unpaid",
   unknown: "Unknown",
 };
-
-const SCENARIOS = [
-  {
-    label: "Assign Plan",
-    description: "customer.plan_assigned",
-    event: "customer.plan_assigned",
-    planId: "plan_pro",
-    planName: "Pro",
-    agreementId: "agr_demo001",
-  },
-  {
-    label: "Payment Succeeded",
-    description: "customer.payment_succeeded",
-    event: "customer.payment_succeeded",
-    planId: "plan_pro",
-    planName: "Pro",
-    agreementId: "agr_demo001",
-  },
-  {
-    label: "Upgrade Plan",
-    description: "customer.plan_changed",
-    event: "customer.plan_changed",
-    planId: "plan_enterprise",
-    planName: "Enterprise",
-    agreementId: "agr_demo001",
-  },
-  {
-    label: "Payment Failed",
-    description: "customer.payment_failed",
-    event: "customer.payment_failed",
-  },
-  {
-    label: "Log Usage",
-    description: "customer.meter_usage_updated",
-    event: "customer.meter_usage_updated",
-    meterId: "api_calls",
-    quantity: 250,
-  },
-  {
-    label: "Cancel Subscription",
-    description: "customer.agreement_cancelled",
-    event: "customer.agreement_cancelled",
-  },
-];
 
 function Badge({ status }: { status: string }) {
   const color = STATUS_COLOR[status] ?? "#9ca3af";
@@ -101,91 +57,6 @@ function StatCard({ label, value, sub, color }: {
   );
 }
 
-function SimulatorPanel({ customerId, customerType }: { customerId: string; customerType: "user" | "org" }) {
-  const simulateEvent = useMutation(api.example.simulateEvent);
-  const [firing, setFiring] = useState<string | null>(null);
-  const [lastFired, setLastFired] = useState<string | null>(null);
-
-  const fire = async (scenario: typeof SCENARIOS[0]) => {
-    setFiring(scenario.event);
-    try {
-      await simulateEvent({
-        eventType: scenario.event,
-        customerId,
-        customerType,
-        planId: scenario.planId,
-        planName: scenario.planName,
-        agreementId: scenario.agreementId,
-        quantity: scenario.quantity,
-        meterId: scenario.meterId,
-      });
-      setLastFired(scenario.event);
-    } finally {
-      setFiring(null);
-    }
-  };
-
-  return (
-    <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginBottom: "1rem" }}>
-      <div style={{
-        padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Event Simulator</div>
-          <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 2 }}>
-            Fire Kinde billing events directly — watch the panels below update in real time
-          </div>
-        </div>
-        {lastFired && (
-          <span style={{ fontSize: "0.68rem", color: "#10b981", fontFamily: "'JetBrains Mono', monospace", background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
-            fired: {lastFired}
-          </span>
-        )}
-      </div>
-
-      <div style={{ padding: "1.25rem" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.65rem" }}>
-          {SCENARIOS.map((scenario) => {
-            const isActive = firing === scenario.event;
-            return (
-              <button
-                key={scenario.event}
-                onClick={() => fire(scenario)}
-                disabled={!!firing}
-                style={{
-                  padding: "0.75rem 1rem",
-                  borderRadius: 10,
-                  border: "1.5px solid #e5e7eb",
-                  background: isActive ? "#6366f1" : "#f9fafb",
-                  color: isActive ? "#fff" : "#374151",
-                  cursor: firing ? "not-allowed" : "pointer",
-                  textAlign: "left",
-                  transition: "all 0.15s",
-                  opacity: firing && !isActive ? 0.5 : 1,
-                }}
-              >
-                <div style={{ fontWeight: 700, fontSize: "0.78rem", marginBottom: 3 }}>
-                  {isActive ? "Firing..." : scenario.label}
-                </div>
-                <div style={{ fontSize: "0.65rem", color: isActive ? "rgba(255,255,255,0.7)" : "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
-                  {scenario.description}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ marginTop: "0.85rem", padding: "0.65rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
-          In production: Kinde fires these events to{" "}
-          <span style={{ color: "#6366f1" }}>POST /webhooks/kinde/billing</span>
-          {" "}— createWebhookHandler() verifies the JWT and calls handleWebhookEvent() automatically.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function SubscriptionPanel({ customerId }: { customerId: string }) {
   const subscription = useQuery(api.example.getSubscription, { customerId });
   const hasActive = useQuery(api.example.hasActivePlan, { customerId });
@@ -215,7 +86,6 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
           {!loading && subscription && <Badge status={subscription.status} />}
         </div>
       </div>
-
       <div style={{ padding: "1.25rem" }}>
         {loading ? (
           <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -225,7 +95,7 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
           </div>
         ) : !subscription ? (
           <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
-            No subscription yet — fire "Assign Plan" above to create one.
+            No subscription found. Make sure your Kinde billing webhook is pointed at this deployment.
           </div>
         ) : (
           <>
@@ -242,7 +112,6 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
                 color={subscription.status === "cancelled" ? "#6b7280" : "#10b981"}
               />
             </div>
-
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
               {[
                 { label: "getSubscription()", value: `status: "${subscription.status}"` },
@@ -254,7 +123,6 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
                 </div>
               ))}
             </div>
-
             {subscription.agreementId && (
               <div style={{
                 padding: "0.65rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb",
@@ -264,7 +132,6 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
                 <span style={{ color: "#9ca3af" }}>agreementId</span>
                 <span style={{ color: "#6b7280" }}>·</span>
                 <span style={{ color: "#374151", fontWeight: 600 }}>{subscription.agreementId}</span>
-                <span style={{ color: "#9ca3af", marginLeft: "auto" }}>pass to recordMeterUsage()</span>
               </div>
             )}
           </>
@@ -289,13 +156,12 @@ function UsagePanel({ customerId }: { customerId: string }) {
           getUsage() · meter: api_calls
         </span>
       </div>
-
       <div style={{ padding: "1.25rem" }}>
         {usage === undefined ? (
           <div style={{ height: 60, borderRadius: 8, background: "#f3f4f6", animation: "shimmer 1.5s ease infinite" }} />
         ) : usage.length === 0 ? (
           <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
-            No usage yet — fire "Log Usage" above to record 250 api_calls.
+            No usage records yet. Kinde will send a customer.meter_usage_updated webhook when usage is recorded.
           </div>
         ) : (
           <>
@@ -340,7 +206,6 @@ function EventLogPanel({ customerId }: { customerId: string }) {
           listBillingEvents() · {events ? events.length : "..."} events
         </span>
       </div>
-
       <div style={{ padding: "1.25rem" }}>
         {events === undefined ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -348,7 +213,7 @@ function EventLogPanel({ customerId }: { customerId: string }) {
           </div>
         ) : events.length === 0 ? (
           <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
-            No events yet. Fire any scenario above to see them appear here instantly.
+            No events yet. Billing events appear here instantly when Kinde fires webhooks.
           </div>
         ) : (
           <div style={{
@@ -379,7 +244,7 @@ function EventLogPanel({ customerId }: { customerId: string }) {
 }
 
 export default function App() {
-  const [customerId, setCustomerId] = useState("kp_user123");
+  const [customerId, setCustomerId] = useState("kp_3afee16200654378884af9a09dab7d8c");
   const [customerType, setCustomerType] = useState<"user" | "org">("user");
 
   return (
@@ -387,7 +252,9 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #f1f5f9; color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        html, body, #root { height: 100%; }
+        body { background: #f1f5f9; color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; display: flex; justify-content: center; }
+        #root { width: 100%; display: flex; justify-content: center; }
         input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important; }
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -397,9 +264,9 @@ export default function App() {
         button:hover:not(:disabled){ opacity:0.85; }
       `}</style>
 
-      <div style={{ minHeight: "100vh", background: "#f1f5f9" }}>
-        <div style={{ maxWidth: 820, margin: "0 auto", padding: "2.5rem 1.5rem 5rem" }}>
-          {/* Header */}
+      <div style={{ width: "100%", minHeight: "100vh", background: "#f1f5f9", display: "flex", justifyContent: "center" }}>
+        <div style={{ width: "100%", maxWidth: 820, padding: "2.5rem 1.5rem 5rem" }}>
+
           <div style={{ marginBottom: "1.75rem", animation: "fadeUp 0.4s ease" }}>
             <h1 style={{
               fontSize: "1.25rem", fontWeight: 800, color: "#111827",
@@ -409,7 +276,7 @@ export default function App() {
               convex-kinde-billing
             </h1>
             <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "1rem" }}>
-              Simulate Kinde billing events and watch subscription state update reactively in Convex.
+              Kinde billing state, synced into Convex in real time via webhooks.
             </p>
             <div style={{
               display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
@@ -431,7 +298,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Customer config */}
           <div style={{
             background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16,
             padding: "1.25rem", marginBottom: "1rem",
@@ -459,10 +325,7 @@ export default function App() {
                 <label style={{ display: "block", fontSize: "0.68rem", color: "#9ca3af", marginBottom: 4 }}>Type</label>
                 <div style={{ display: "flex", gap: 6 }}>
                   {(["user", "org"] as const).map((t) => (
-                    <button key={t} onClick={() => {
-                      setCustomerType(t);
-                      setCustomerId(t === "user" ? "kp_user123" : "org_abc456");
-                    }} style={{
+                    <button key={t} onClick={() => setCustomerType(t)} style={{
                       padding: "0.5rem 1rem", borderRadius: 8,
                       border: "1.5px solid #e5e7eb",
                       background: customerType === t ? "#6366f1" : "#f9fafb",
@@ -479,18 +342,14 @@ export default function App() {
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.1s both" }}>
-            <SimulatorPanel customerId={customerId} customerType={customerType} />
-          </div>
-
-          <div style={{ animation: "fadeUp 0.4s ease 0.15s both" }}>
             <SubscriptionPanel customerId={customerId} />
           </div>
 
-          <div style={{ animation: "fadeUp 0.4s ease 0.2s both" }}>
+          <div style={{ animation: "fadeUp 0.4s ease 0.15s both" }}>
             <UsagePanel customerId={customerId} />
           </div>
 
-          <div style={{ animation: "fadeUp 0.4s ease 0.25s both" }}>
+          <div style={{ animation: "fadeUp 0.4s ease 0.2s both" }}>
             <EventLogPanel customerId={customerId} />
           </div>
 
@@ -498,10 +357,10 @@ export default function App() {
             marginTop: "1.5rem", padding: "0.75rem 1rem",
             background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
             fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace",
-            animation: "fadeUp 0.4s ease 0.3s both",
+            animation: "fadeUp 0.4s ease 0.25s both",
           }}>
             All state is stored in Convex and updates reactively via useQuery. No polling.
-            In production, Kinde fires the webhooks automatically — no simulator needed.
+            In production, Kinde fires the webhooks automatically.
           </div>
 
         </div>
