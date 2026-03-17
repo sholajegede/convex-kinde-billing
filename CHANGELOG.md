@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.10
+
+- fix: remove M2M from portal, use Kinde Account API with user access token
+
 ## 0.1.9
 
 - feat: use PortalLink for self-serve portal, document M2M path for server-side
