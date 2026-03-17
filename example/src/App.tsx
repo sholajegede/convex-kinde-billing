@@ -1,7 +1,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
-import { PortalLink } from "@kinde-oss/kinde-auth-react/components";
+
 
 const STATUS_COLOR: Record<string, string> = {
   active: "#10b981",
