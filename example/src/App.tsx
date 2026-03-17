@@ -176,7 +176,10 @@ function BillingActionsPanel({ customerId: _customerId }: { customerId: string }
             Upgrade to Pro →
           </a>
         )}
-        <PortalLink
+        <a
+          href={`${import.meta.env.VITE_KINDE_ISSUER_URL || "https://app.kinde.com"}/profile`}
+          target="_blank"
+          rel="noopener noreferrer"
           style={{
             display: "inline-flex", alignItems: "center",
             padding: "0.6rem 1.25rem", borderRadius: 8,
@@ -187,7 +190,7 @@ function BillingActionsPanel({ customerId: _customerId }: { customerId: string }
           }}
         >
           Manage Billing
-        </PortalLink>
+        </a>
         <div style={{
           width: "100%", marginTop: "0.5rem",
           padding: "0.65rem 0.85rem", background: "#f9fafb",
