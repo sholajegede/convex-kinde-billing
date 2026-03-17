@@ -6,7 +6,6 @@
 [![Convex Component](https://www.convex.dev/components/badge/sholajegede/convex-kinde-billing)](https://www.convex.dev/components/sholajegede/convex-kinde-billing)
 
 [![npm downloads](https://img.shields.io/npm/dw/convex-kinde-billing)](https://www.npmjs.com/package/convex-kinde-billing)
-[![Build Status](https://github.com/sholajegede/convex-kinde-billing/actions/workflows/test.yml/badge.svg)](https://github.com/sholajegede/convex-kinde-billing/actions)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 ```ts
