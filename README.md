@@ -7,7 +7,9 @@
 [![npm downloads](https://img.shields.io/npm/dw/convex-kinde-billing)](https://www.npmjs.com/package/convex-kinde-billing)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 ```ts
-const kindeBilling = new KindeBilling(components.convexKindeBilling);
+const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 
 // Is this user on an active plan?
 const active = await kindeBilling.hasActivePlan(ctx, { customerId: "kp_abc123" });
@@ -54,7 +56,7 @@ npm install convex-kinde-billing
 
 ## Quick Start
 
-Four steps to get billing state syncing into your Convex app.
+Five steps to get billing state syncing into your Convex app.
 
 ### 1. Add the component
 
@@ -69,26 +71,37 @@ app.use(convexKindeBilling);
 export default app;
 ```
 
-### 2. Mount the webhook handler
+### 2. Set your environment variable
+```bash
+npx convex env set KINDE_ISSUER_URL https://yourdomain.kinde.com
+```
+
+Your Kinde issuer URL is your Kinde domain — find it in Kinde → **Settings → Applications → your app → Details**.
+
+### 3. Mount the webhook handler
 
 In `convex/http.ts`:
 ```ts
 import { httpRouter } from "convex/server";
 import { components } from "./_generated/api";
-import { createWebhookHandler } from "convex-kinde-billing";
+import { KindeBilling } from "convex-kinde-billing";
+
+const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 
 const http = httpRouter();
 
 http.route({
   path: "/webhooks/kinde/billing",
   method: "POST",
-  handler: createWebhookHandler(components.convexKindeBilling),
+  handler: kindeBilling.webhookHandler,
 });
 
 export default http;
 ```
 
-### 3. Register the webhook in Kinde
+### 4. Register the webhook in Kinde
 
 1. In Kinde → **Webhooks → Add endpoint**
 2. Set the URL: `https://your-deployment.convex.site/webhooks/kinde/billing`
@@ -97,14 +110,16 @@ export default http;
 
 Your Convex site URL is in the Convex dashboard under **Settings → URL & Deploy Key** — it ends in `.convex.site`.
 
-### 4. Initialize the client
+### 5. Initialize the client
 
 In `convex/billing.ts`:
 ```ts
 import { components } from "./_generated/api";
 import { KindeBilling } from "convex-kinde-billing";
 
-export const kindeBilling = new KindeBilling(components.convexKindeBilling);
+export const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 ```
 
 Import `kindeBilling` from this file in any Convex function that needs billing queries.
@@ -118,7 +133,9 @@ import { KindeBilling } from "convex-kinde-billing";
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 
-export const kindeBilling = new KindeBilling(components.convexKindeBilling);
+export const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 
 // Gate features — use this in queries and mutations
 export const checkAccess = query({
@@ -132,14 +149,18 @@ export const checkAccess = query({
 ```ts
 import { httpRouter } from "convex/server";
 import { components } from "./_generated/api";
-import { createWebhookHandler } from "convex-kinde-billing";
+import { KindeBilling } from "convex-kinde-billing";
+
+const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 
 const http = httpRouter();
 
 http.route({
   path: "/webhooks/kinde/billing",
   method: "POST",
-  handler: createWebhookHandler(components.convexKindeBilling),
+  handler: kindeBilling.webhookHandler,
 });
 
 export default http;
@@ -241,8 +262,17 @@ export const accessAdvancedAnalytics = query({
 ### `KindeBilling` class
 ```ts
 import { KindeBilling } from "convex-kinde-billing";
-const kindeBilling = new KindeBilling(components.convexKindeBilling);
+
+const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 ```
+
+#### Constructor options
+
+| Option | Type | Description |
+||||
+| `KINDE_ISSUER_URL` | `string` | Your Kinde issuer URL e.g. `https://yourdomain.kinde.com` |
 
 #### Methods
 
@@ -256,12 +286,9 @@ const kindeBilling = new KindeBilling(components.convexKindeBilling);
 
 > All methods return `null`, `false`, or `[]` (never throw) when a customer has no data.
 
-#### `createWebhookHandler(component)`
+#### `kindeBilling.webhookHandler`
 
-Returns an HTTP action that verifies and processes all incoming Kinde billing webhooks.
-```ts
-import { createWebhookHandler } from "convex-kinde-billing";
-```
+HTTP action to mount in `convex/http.ts`. Verifies and processes all incoming Kinde billing webhooks automatically.
 
 ## Type Reference
 
@@ -335,13 +362,7 @@ All 8 Kinde billing webhook events are handled automatically. Every event is wri
 
 ### How webhook verification works
 
-Kinde webhooks are RS256-signed JWTs. The component verifies every request with no static secret:
-
-1. Decodes the JWT to extract the `iss` claim — your Kinde domain
-2. Fetches Kinde's public keys from `{iss}/.well-known/jwks.json`
-3. Verifies the JWT signature using `jose`
-
-No webhook secret to configure, rotate, or leak.
+Kinde billing webhooks are RS256-signed JWTs. The component uses your `KINDE_ISSUER_URL` to fetch Kinde's public keys from `{KINDE_ISSUER_URL}/.well-known/jwks.json` and verifies the signature using `jose`. No webhook secret to configure, rotate, or leak.
 
 ## Database Schema
 
@@ -351,12 +372,12 @@ Three isolated tables, prefixed with `convexKindeBilling:` in the Convex dashboa
 
 | Field | Type | Description |
 ||||
-| `customerId` | `string` | Kinde `user_id` or `org_code` |
+| `customerId` | `string` | Kinde `customer_id` or `org_code` |
 | `customerType` | `"user" \| "org"` | B2C user or B2B organisation |
-| `planId` | `string?` | Kinde plan identifier |
-| `planName` | `string?` | Human-readable plan name |
+| `planId` | `string?` | Kinde plan key e.g. `customer_pro_plan` |
+| `planName` | `string?` | Human-readable plan name e.g. `Pro` |
 | `status` | `string` | `active`, `cancelled`, `past_due`, `unpaid`, or `unknown` |
-| `agreementId` | `string?` | Kinde `customer_agreement_id` |
+| `agreementId` | `string?` | Kinde `agreement_id` |
 | `currentPeriodEnd` | `number?` | Unix ms timestamp of next billing date |
 | `cancelledAt` | `number?` | Unix ms timestamp when cancellation was received |
 | `updatedAt` | `number` | Unix ms timestamp of last write |
@@ -365,7 +386,7 @@ Three isolated tables, prefixed with `convexKindeBilling:` in the Convex dashboa
 
 | Field | Type | Description |
 ||||
-| `customerId` | `string` | Kinde `user_id` or `org_code` |
+| `customerId` | `string` | Kinde `customer_id` or `org_code` |
 | `eventType` | `string` | e.g. `customer.plan_assigned` |
 | `payload` | `string` | Full verified JWT payload, JSON stringified |
 | `receivedAt` | `number` | Unix ms timestamp |
@@ -374,36 +395,30 @@ Three isolated tables, prefixed with `convexKindeBilling:` in the Convex dashboa
 
 | Field | Type | Description |
 ||||
-| `customerId` | `string` | Kinde `user_id` or `org_code` |
-| `meterId` | `string` | Feature code e.g. `api_calls` |
+| `customerId` | `string` | Kinde `customer_id` or `org_code` |
+| `meterId` | `string` | Feature key e.g. `api_calls` |
 | `quantity` | `number` | Usage quantity |
 | `recordedAt` | `number` | Unix ms timestamp |
 
 ## Customer IDs
 
-- Payload contains `org_code` → `customerType: "org"`
-- Otherwise falls back to `customer_id` or `user_id` → `customerType: "user"`
+Kinde billing uses `customer_id` — a separate identifier from the auth `user_id` (`kp_xxx`). The component detects the correct ID automatically from the webhook payload:
 
-When calling query methods pass:
-- B2C: Kinde `user_id` e.g. `kp_abc123`
-- B2B: Kinde `org_code` e.g. `org_abc123`
+- Payload contains `org_code` → `customerType: "org"`
+- Otherwise uses `customer_id` → `customerType: "user"`
+
+When calling query methods pass the Kinde `customer_id` e.g. `customer_019865139a9b96b5bb666f8441f2d73c`. You can find it in Kinde → **Billing → Users → your user → Customer ID**.
 
 ## Using with `kinde-sync`
 
-If you're also using [`@sholajegede/kinde-sync`](https://www.npmjs.com/package/@sholajegede/kinde-sync) the `customerId` values are the same Kinde identifiers — join billing state to user profiles in one query:
+If you're also using [`@sholajegede/kinde-sync`](https://www.npmjs.com/package/@sholajegede/kinde-sync) note that `kinde-sync` uses the Kinde auth `user_id` (`kp_xxx`) while this component uses the Kinde billing `customer_id`. You can join them via the `user_id` field present in billing webhook payloads:
 ```ts
 export const getUserWithBilling = query({
-  args: { userId: v.string() },
+  args: { customerId: v.string() },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_kindeId", (q) => q.eq("kindeId", args.userId))
-      .first();
-
-    const plan = await kindeBilling.getActivePlan(ctx, { customerId: args.userId });
-    const subscription = await kindeBilling.getSubscription(ctx, { customerId: args.userId });
-
-    return { user, plan, subscription };
+    const plan = await kindeBilling.getActivePlan(ctx, { customerId: args.customerId });
+    const subscription = await kindeBilling.getSubscription(ctx, { customerId: args.customerId });
+    return { plan, subscription };
   },
 });
 ```
@@ -466,25 +481,33 @@ test("cancelled after agreement_cancelled", async () => {
 
 **One subscription row per customer.** The `subscriptions` table stores one row per `customerId`, updated in place.
 
+**Billing customer ID vs auth user ID.** Kinde uses separate IDs for billing (`customer_xxx`) and auth (`kp_xxx`). Always pass the billing `customer_id` to query methods.
+
 ## Troubleshooting
 
-**Webhook returns 400 "Missing issuer"**
-The JWT is missing the `iss` claim. Verify the webhook URL is correct and Kinde billing is configured.
+**Webhook returns 401 "Invalid token"**
+JWT verification failed. Make sure `KINDE_ISSUER_URL` is set correctly in your Convex dashboard under **Settings → Environment Variables** and matches your Kinde domain exactly.
 
 **Webhook returns 400 "Missing event data"**
 Check you've pointed Kinde's billing webhooks (not auth webhooks) at this endpoint.
 
-**Webhook returns 500 "Webhook processing failed"**
+**Webhook returns 400 "Missing customer ID"**
+The payload doesn't contain `customer_id`, `org_code`, or `user_id`. Check the event type is a billing event and the webhook is correctly configured in Kinde.
+
+**Webhook returns 500**
 Check your Convex function logs:
 ```bash
 npx convex logs
 ```
 
 **`hasActivePlan` returns false immediately after assigning a plan**
-Normal webhook delay — Kinde takes a few seconds. The UI updates automatically once it arrives.
+Normal webhook delay — Kinde takes a few seconds. The UI updates automatically once the webhook arrives.
 
 **Subscription not updating after plan change**
 Confirm all 8 billing events are selected in Kinde's webhook settings.
+
+**Plan name shows as undefined**
+Make sure you're on the latest version — earlier versions didn't extract plan name from the nested `data.plan` object in Kinde's payload.
 
 **Component tables not visible in the Convex dashboard**
 Use the component selector dropdown at the top of the Data tab to switch to the `convexKindeBilling` namespace.
@@ -500,4 +523,3 @@ See [CHANGELOG.md](./CHANGELOG.md).
 ## License
 
 Apache-2.0
-EOF
