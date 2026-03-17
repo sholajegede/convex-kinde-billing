@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- docs: update README with correct KindeBilling API and KINDE_ISSUER_URL
+
 ## 0.1.6
 
 - fix: plan name from Kinde payload, renew date parsing, bg overflow
