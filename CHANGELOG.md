@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.8
+
+- feat: add getCheckoutUrl, getPortalUrl, hasFeature, ManageBillingButton
+
 ## 0.1.7
 
 - docs: update README with correct KindeBilling API and KINDE_ISSUER_URL
