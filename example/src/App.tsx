@@ -1,4 +1,4 @@
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
 
@@ -18,16 +18,49 @@ const STATUS_LABEL: Record<string, string> = {
   unknown: "Unknown",
 };
 
-const EVENT_ICON: Record<string, string> = {
-  "customer.plan_assigned": "📋",
-  "customer.agreement_created": "✍️",
-  "customer.plan_changed": "🔄",
-  "customer.agreement_cancelled": "🚫",
-  "customer.payment_succeeded": "✅",
-  "customer.payment_failed": "❌",
-  "customer.invoice_overdue": "⏰",
-  "customer.meter_usage_updated": "📊",
-};
+const SCENARIOS = [
+  {
+    label: "Assign Plan",
+    description: "customer.plan_assigned",
+    event: "customer.plan_assigned",
+    planId: "plan_pro",
+    planName: "Pro",
+    agreementId: "agr_demo001",
+  },
+  {
+    label: "Payment Succeeded",
+    description: "customer.payment_succeeded",
+    event: "customer.payment_succeeded",
+    planId: "plan_pro",
+    planName: "Pro",
+    agreementId: "agr_demo001",
+  },
+  {
+    label: "Upgrade Plan",
+    description: "customer.plan_changed",
+    event: "customer.plan_changed",
+    planId: "plan_enterprise",
+    planName: "Enterprise",
+    agreementId: "agr_demo001",
+  },
+  {
+    label: "Payment Failed",
+    description: "customer.payment_failed",
+    event: "customer.payment_failed",
+  },
+  {
+    label: "Log Usage",
+    description: "customer.meter_usage_updated",
+    event: "customer.meter_usage_updated",
+    meterId: "api_calls",
+    quantity: 250,
+  },
+  {
+    label: "Cancel Subscription",
+    description: "customer.agreement_cancelled",
+    event: "customer.agreement_cancelled",
+  },
+];
 
 function Badge({ status }: { status: string }) {
   const color = STATUS_COLOR[status] ?? "#9ca3af";
@@ -55,21 +88,107 @@ function StatCard({ label, value, sub, color }: {
   return (
     <div style={{
       background: "#fff", border: "1.5px solid #e5e7eb",
-      borderRadius: 12, padding: "1rem 1.25rem", flex: 1,
+      borderRadius: 12, padding: "1rem 1.25rem", flex: 1, minWidth: 120,
     }}>
-      <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+      <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
         {label}
       </div>
-      <div style={{ fontSize: "1.35rem", fontWeight: 800, color: color ?? "#111827", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.03em" }}>
+      <div style={{ fontSize: "1.25rem", fontWeight: 800, color: color ?? "#111827", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.03em" }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: "0.68rem", color: "#9ca3af", marginTop: 3, fontFamily: "'JetBrains Mono', monospace" }}>{sub}</div>}
+      {sub && <div style={{ fontSize: "0.65rem", color: "#9ca3af", marginTop: 3, fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>{sub}</div>}
+    </div>
+  );
+}
+
+function SimulatorPanel({ customerId, customerType }: { customerId: string; customerType: "user" | "org" }) {
+  const simulateEvent = useMutation(api.example.simulateEvent);
+  const [firing, setFiring] = useState<string | null>(null);
+  const [lastFired, setLastFired] = useState<string | null>(null);
+
+  const fire = async (scenario: typeof SCENARIOS[0]) => {
+    setFiring(scenario.event);
+    try {
+      await simulateEvent({
+        eventType: scenario.event,
+        customerId,
+        customerType,
+        planId: scenario.planId,
+        planName: scenario.planName,
+        agreementId: scenario.agreementId,
+        quantity: scenario.quantity,
+        meterId: scenario.meterId,
+      });
+      setLastFired(scenario.event);
+    } finally {
+      setFiring(null);
+    }
+  };
+
+  return (
+    <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginBottom: "1rem" }}>
+      <div style={{
+        padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Event Simulator</div>
+          <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 2 }}>
+            Fire Kinde billing events directly — watch the panels below update in real time
+          </div>
+        </div>
+        {lastFired && (
+          <span style={{ fontSize: "0.68rem", color: "#10b981", fontFamily: "'JetBrains Mono', monospace", background: "#f0fdf4", padding: "3px 8px", borderRadius: 6, border: "1px solid #bbf7d0" }}>
+            fired: {lastFired}
+          </span>
+        )}
+      </div>
+
+      <div style={{ padding: "1.25rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.65rem" }}>
+          {SCENARIOS.map((scenario) => {
+            const isActive = firing === scenario.event;
+            return (
+              <button
+                key={scenario.event}
+                onClick={() => fire(scenario)}
+                disabled={!!firing}
+                style={{
+                  padding: "0.75rem 1rem",
+                  borderRadius: 10,
+                  border: "1.5px solid #e5e7eb",
+                  background: isActive ? "#6366f1" : "#f9fafb",
+                  color: isActive ? "#fff" : "#374151",
+                  cursor: firing ? "not-allowed" : "pointer",
+                  textAlign: "left",
+                  transition: "all 0.15s",
+                  opacity: firing && !isActive ? 0.5 : 1,
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: "0.78rem", marginBottom: 3 }}>
+                  {isActive ? "Firing..." : scenario.label}
+                </div>
+                <div style={{ fontSize: "0.65rem", color: isActive ? "rgba(255,255,255,0.7)" : "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+                  {scenario.description}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: "0.85rem", padding: "0.65rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+          In production: Kinde fires these events to{" "}
+          <span style={{ color: "#6366f1" }}>POST /webhooks/kinde/billing</span>
+          {" "}— createWebhookHandler() verifies the JWT and calls handleWebhookEvent() automatically.
+        </div>
+      </div>
     </div>
   );
 }
 
 function SubscriptionPanel({ customerId }: { customerId: string }) {
   const subscription = useQuery(api.example.getSubscription, { customerId });
+  const hasActive = useQuery(api.example.hasActivePlan, { customerId });
   const activePlan = useQuery(api.example.getActivePlan, { customerId });
   const loading = subscription === undefined;
 
@@ -86,12 +205,15 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
         padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", display: "flex", alignItems: "center", gap: 7 }}>
-          <span>💳</span> Subscription
+        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Subscription State</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+            hasActivePlan() → <span style={{ color: hasActive ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+              {loading ? "..." : String(hasActive)}
+            </span>
+          </span>
+          {!loading && subscription && <Badge status={subscription.status} />}
         </div>
-        {!loading && subscription && <Badge status={subscription.status} />}
-        {!loading && !subscription && <span style={{ fontSize: "0.72rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>no subscription</span>}
-        {loading && <span style={{ fontSize: "0.72rem", color: "#9ca3af" }}>loading...</span>}
       </div>
 
       <div style={{ padding: "1.25rem" }}>
@@ -101,7 +223,11 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
               <div key={i} style={{ flex: 1, height: 72, borderRadius: 10, background: "#f3f4f6", animation: "shimmer 1.5s ease infinite" }} />
             ))}
           </div>
-        ) : subscription ? (
+        ) : !subscription ? (
+          <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
+            No subscription yet — fire "Assign Plan" above to create one.
+          </div>
+        ) : (
           <>
             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
               <StatCard label="Plan" value={activePlan?.planName ?? "—"} sub={activePlan?.planId} color="#6366f1" />
@@ -117,31 +243,31 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
               />
             </div>
 
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginBottom: "0.75rem" }}>
+              {[
+                { label: "getSubscription()", value: `status: "${subscription.status}"` },
+                { label: "getActivePlan()", value: activePlan ? `planName: "${activePlan.planName}"` : "null" },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ padding: "0.6rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb", fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem" }}>
+                  <span style={{ color: "#9ca3af" }}>{label}</span>
+                  <span style={{ color: "#374151", marginLeft: 6, fontWeight: 600 }}>{value}</span>
+                </div>
+              ))}
+            </div>
+
             {subscription.agreementId && (
               <div style={{
-                padding: "0.65rem 0.85rem",
-                background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb",
+                padding: "0.65rem 0.85rem", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb",
                 display: "flex", alignItems: "center", gap: 8,
-                fontSize: "0.72rem", fontFamily: "'JetBrains Mono', monospace",
-                flexWrap: "wrap",
+                fontSize: "0.68rem", fontFamily: "'JetBrains Mono', monospace", flexWrap: "wrap",
               }}>
-                <span style={{ color: "#9ca3af", flexShrink: 0 }}>agreement_id</span>
+                <span style={{ color: "#9ca3af" }}>agreementId</span>
                 <span style={{ color: "#6b7280" }}>·</span>
                 <span style={{ color: "#374151", fontWeight: 600 }}>{subscription.agreementId}</span>
-                <span style={{ color: "#9ca3af", marginLeft: "auto", fontSize: "0.68rem" }}>
-                  required for recordMeterUsage()
-                </span>
+                <span style={{ color: "#9ca3af", marginLeft: "auto" }}>pass to recordMeterUsage()</span>
               </div>
             )}
           </>
-        ) : (
-          <div style={{ textAlign: "center", padding: "2rem", color: "#9ca3af", fontSize: "0.82rem" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>💸</div>
-            No subscription found.
-            <div style={{ fontSize: "0.72rem", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-              Waiting for a Kinde billing webhook.
-            </div>
-          </div>
         )}
       </div>
     </div>
@@ -149,71 +275,49 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
 }
 
 function UsagePanel({ customerId }: { customerId: string }) {
-  const [meterId, setMeterId] = useState("api_calls");
-  const usage = useQuery(api.example.getUsage, { customerId, meterId });
+  const usage = useQuery(api.example.getUsage, { customerId, meterId: "api_calls" });
   const total = usage?.reduce((sum, r) => sum + r.quantity, 0) ?? 0;
 
   return (
     <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginBottom: "1rem" }}>
       <div style={{
         padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb",
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          <span>📊</span> Metered Usage
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>Meter</span>
-          <input
-            value={meterId}
-            onChange={(e) => setMeterId(e.target.value)}
-            placeholder="api_calls"
-            style={{
-              padding: "3px 8px", borderRadius: 6, border: "1px solid #e5e7eb",
-              background: "#fff", color: "#374151", fontSize: "0.75rem",
-              fontFamily: "'JetBrains Mono', monospace", outline: "none", width: 120,
-            }}
-          />
-        </div>
+        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Metered Usage</div>
+        <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+          getUsage() · meter: api_calls
+        </span>
       </div>
 
       <div style={{ padding: "1.25rem" }}>
         {usage === undefined ? (
           <div style={{ height: 60, borderRadius: 8, background: "#f3f4f6", animation: "shimmer 1.5s ease infinite" }} />
         ) : usage.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem" }}>
-            <div style={{ fontSize: "1.5rem", marginBottom: "0.4rem" }}>📉</div>
-            No usage records for <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{meterId}</span>
+          <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
+            No usage yet — fire "Log Usage" above to record 250 api_calls.
           </div>
         ) : (
           <>
             <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem" }}>
               <StatCard label="Total Units" value={total.toLocaleString()} sub={`across ${usage.length} records`} color="#6366f1" />
-              <StatCard label="Latest" value={usage[0].quantity.toLocaleString()} sub={new Date(usage[0].recordedAt).toLocaleTimeString()} />
+              <StatCard label="Latest Record" value={usage[0].quantity.toLocaleString()} sub={new Date(usage[0].recordedAt).toLocaleTimeString()} />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {usage.slice(0, 8).map((record) => (
+              {usage.slice(0, 6).map((record) => (
                 <div key={record._id} style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "0.55rem 0.75rem", background: "#f9fafb",
+                  padding: "0.5rem 0.75rem", background: "#f9fafb",
                   borderRadius: 8, border: "1px solid #e5e7eb",
                 }}>
-                  <span style={{ fontSize: "0.72rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span style={{ fontSize: "0.7rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
                     {new Date(record.recordedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.82rem", color: "#374151" }}>
-                      {record.quantity.toLocaleString()}
-                    </span>
-                    <span style={{ fontSize: "0.68rem", color: "#9ca3af" }}>units</span>
-                  </div>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: "0.8rem", color: "#374151" }}>
+                    {record.quantity.toLocaleString()} <span style={{ fontWeight: 400, color: "#9ca3af" }}>units</span>
+                  </span>
                 </div>
               ))}
-              {usage.length > 8 && (
-                <div style={{ textAlign: "center", fontSize: "0.72rem", color: "#9ca3af", padding: "0.4rem", fontFamily: "'JetBrains Mono', monospace" }}>
-                  +{usage.length - 8} more records
-                </div>
-              )}
             </div>
           </>
         )}
@@ -222,7 +326,7 @@ function UsagePanel({ customerId }: { customerId: string }) {
   );
 }
 
-function EventsPanel({ customerId }: { customerId: string }) {
+function EventLogPanel({ customerId }: { customerId: string }) {
   const events = useQuery(api.example.listBillingEvents, { customerId });
 
   return (
@@ -231,52 +335,39 @@ function EventsPanel({ customerId }: { customerId: string }) {
         padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb",
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
-        <div style={{ fontWeight: 700, fontSize: "0.82rem", color: "#374151", display: "flex", alignItems: "center", gap: 7 }}>
-          <span>📜</span> Billing Event Log
-        </div>
-        <span style={{ fontSize: "0.72rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
-          {events ? `${events.length} events` : "..."}
+        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Billing Event Log</div>
+        <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
+          listBillingEvents() · {events ? events.length : "..."} events
         </span>
       </div>
 
       <div style={{ padding: "1.25rem" }}>
         {events === undefined ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{ height: 52, borderRadius: 8, background: "#f3f4f6", animation: "shimmer 1.5s ease infinite" }} />
-            ))}
+            {[1, 2, 3].map(i => <div key={i} style={{ height: 44, borderRadius: 8, background: "#f3f4f6", animation: "shimmer 1.5s ease infinite" }} />)}
           </div>
         ) : events.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "2.5rem", color: "#9ca3af", fontSize: "0.82rem" }}>
-            <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>📭</div>
-            No billing events yet.
-            <div style={{ fontSize: "0.72rem", marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-              Events appear here as Kinde webhooks arrive.
-            </div>
+          <div style={{ padding: "1.5rem", color: "#9ca3af", fontSize: "0.82rem", textAlign: "center" }}>
+            No events yet. Fire any scenario above to see them appear here instantly.
           </div>
         ) : (
           <div style={{
             background: "#0f172a", borderRadius: 10, padding: "0.85rem 1rem",
-            fontFamily: "'JetBrains Mono', monospace", fontSize: "0.72rem",
-            maxHeight: 320, overflowY: "auto", border: "1px solid #e2e8f0",
+            fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem",
+            maxHeight: 300, overflowY: "auto",
           }}>
             {events.map((event, i) => (
               <div key={event._id} style={{
-                display: "flex", gap: "0.75rem", alignItems: "flex-start",
-                marginBottom: i < events.length - 1 ? "0.45rem" : 0,
-                paddingBottom: i < events.length - 1 ? "0.45rem" : 0,
+                display: "flex", gap: "0.75rem", alignItems: "center",
+                marginBottom: i < events.length - 1 ? "0.4rem" : 0,
+                paddingBottom: i < events.length - 1 ? "0.4rem" : 0,
                 borderBottom: i < events.length - 1 ? "1px solid #1e293b" : "none",
               }}>
                 <span style={{ color: "#475569", flexShrink: 0, minWidth: 72 }}>
                   {new Date(event.receivedAt).toLocaleTimeString("en-US", { hour12: false })}
                 </span>
-                <span style={{ flexShrink: 0, fontSize: "0.85rem" }}>
-                  {EVENT_ICON[event.eventType] ?? "📌"}
-                </span>
                 <span style={{ color: "#7dd3fc", flex: 1 }}>{event.eventType}</span>
-                <span style={{ color: "#475569", flexShrink: 0 }}>
-                  {event.customerId.slice(0, 12)}…
-                </span>
+                <span style={{ color: "#475569" }}>{event.customerId}</span>
               </div>
             ))}
             <span style={{ color: "#334155", animation: "blink 1s step-end infinite" }}>█</span>
@@ -289,11 +380,7 @@ function EventsPanel({ customerId }: { customerId: string }) {
 
 export default function App() {
   const [customerId, setCustomerId] = useState("kp_user123");
-
-  const DEMO_IDS = [
-    { label: "B2C User", id: "kp_user123" },
-    { label: "B2B Org", id: "org_abc456" },
-  ];
+  const [customerType, setCustomerType] = useState<"user" | "org">("user");
 
   return (
     <>
@@ -306,122 +393,115 @@ export default function App() {
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        ::-webkit-scrollbar{width:4px;height:4px} ::-webkit-scrollbar-track{background:#f1f5f9} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
-        button:hover{opacity:0.85;}
+        ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:transparent} ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
+        button:hover:not(:disabled){ opacity:0.85; }
       `}</style>
 
       <div style={{ minHeight: "100vh", background: "#f1f5f9" }}>
-        <div style={{ maxWidth: 860, margin: "0 auto", padding: "2.5rem 1.5rem 5rem" }}>
-
+        <div style={{ maxWidth: 820, margin: "0 auto", padding: "2.5rem 1.5rem 5rem" }}>
           {/* Header */}
           <div style={{ marginBottom: "1.75rem", animation: "fadeUp 0.4s ease" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: "0.85rem" }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 14,
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: "1.4rem", boxShadow: "0 8px 24px rgba(99,102,241,0.28)", flexShrink: 0,
-              }}>💳</div>
-              <div>
-                <h1 style={{
-                  fontSize: "1.3rem", fontWeight: 800, color: "#111827",
-                  fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.03em", textAlign: "left",
-                }}>convex-kinde-billing</h1>
-                <div style={{ fontSize: "0.72rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace", textAlign: "left" }}>
-                  Real-time Kinde billing state — reactive, zero boilerplate
-                </div>
-              </div>
-            </div>
-
-            {/* Flow trace */}
+            <h1 style={{
+              fontSize: "1.25rem", fontWeight: 800, color: "#111827",
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: "-0.03em",
+              marginBottom: 4,
+            }}>
+              convex-kinde-billing
+            </h1>
+            <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "1rem" }}>
+              Simulate Kinde billing events and watch subscription state update reactively in Convex.
+            </p>
             <div style={{
               display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
-              padding: "0.65rem 1rem", background: "#fff",
+              padding: "0.6rem 1rem", background: "#fff",
               border: "1px solid #e5e7eb", borderRadius: 10,
-              fontFamily: "'JetBrains Mono', monospace", fontSize: "0.7rem",
+              fontFamily: "'JetBrains Mono', monospace", fontSize: "0.68rem",
             }}>
               {[
-                { t: "Kinde billing event", c: "#6366f1" },
-                { t: "→", c: "#9ca3af" },
-                { t: "POST /webhooks/kinde/billing", c: "#8b5cf6" },
+                { t: "Kinde fires webhook", c: "#6366f1" },
                 { t: "→", c: "#9ca3af" },
                 { t: "createWebhookHandler()", c: "#0891b2" },
                 { t: "→", c: "#9ca3af" },
                 { t: "handleWebhookEvent()", c: "#059669" },
                 { t: "→", c: "#9ca3af" },
-                { t: "useQuery live ✓", c: "#059669" },
+                { t: "Convex DB updated", c: "#059669" },
+                { t: "→", c: "#9ca3af" },
+                { t: "useQuery reflects change", c: "#059669" },
               ].map((item, i) => <span key={i} style={{ color: item.c }}>{item.t}</span>)}
             </div>
           </div>
 
-          {/* Customer picker */}
+          {/* Customer config */}
           <div style={{
             background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16,
             padding: "1.25rem", marginBottom: "1rem",
             animation: "fadeUp 0.4s ease 0.05s both",
           }}>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "0.75rem", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={{ display: "block", fontSize: "0.68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>
-                  Customer ID
-                </label>
+            <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.75rem" }}>
+              Customer
+            </div>
+            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <label style={{ display: "block", fontSize: "0.68rem", color: "#9ca3af", marginBottom: 4 }}>Customer ID</label>
                 <input
+                  title="customerId"
                   value={customerId}
                   onChange={(e) => setCustomerId(e.target.value)}
-                  placeholder="kp_... or org_..."
                   style={{
-                    width: "100%", padding: "0.6rem 0.75rem",
+                    width: "100%", padding: "0.55rem 0.75rem",
                     borderRadius: 8, border: "1.5px solid #e5e7eb",
                     background: "#f9fafb", color: "#111827",
-                    fontSize: "0.82rem", fontFamily: "'JetBrains Mono', monospace",
-                    outline: "none",
+                    fontSize: "0.8rem", fontFamily: "'JetBrains Mono', monospace", outline: "none",
                   }}
                 />
               </div>
-              <div style={{ display: "flex", gap: 6, paddingBottom: 1 }}>
-                <span style={{ fontSize: "0.68rem", color: "#9ca3af", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", paddingBottom: "0.6rem", alignSelf: "flex-end" }}>Try</span>
-                {DEMO_IDS.map(({ label, id }) => (
-                  <button key={id} onClick={() => setCustomerId(id)} style={{
-                    padding: "0.55rem 0.85rem", borderRadius: 8,
-                    border: "1.5px solid #e5e7eb",
-                    background: customerId === id ? "#6366f1" : "#f9fafb",
-                    color: customerId === id ? "#fff" : "#374151",
-                    fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
-                    fontFamily: "'Sora', sans-serif", transition: "all 0.15s", whiteSpace: "nowrap",
-                  }}>{label}</button>
-                ))}
+              <div>
+                <label style={{ display: "block", fontSize: "0.68rem", color: "#9ca3af", marginBottom: 4 }}>Type</label>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["user", "org"] as const).map((t) => (
+                    <button key={t} onClick={() => {
+                      setCustomerType(t);
+                      setCustomerId(t === "user" ? "kp_user123" : "org_abc456");
+                    }} style={{
+                      padding: "0.5rem 1rem", borderRadius: 8,
+                      border: "1.5px solid #e5e7eb",
+                      background: customerType === t ? "#6366f1" : "#f9fafb",
+                      color: customerType === t ? "#fff" : "#374151",
+                      fontSize: "0.75rem", fontWeight: 600, cursor: "pointer",
+                      fontFamily: "'Sora', sans-serif", transition: "all 0.15s",
+                    }}>
+                      {t === "user" ? "B2C User" : "B2B Org"}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div style={{ marginTop: "0.5rem", fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace" }}>
-              B2C: <span style={{ color: "#6b7280" }}>kp_abc123</span>
-              &nbsp;&nbsp;·&nbsp;&nbsp;
-              B2B: <span style={{ color: "#6b7280" }}>org_abc123</span>
             </div>
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.1s both" }}>
-            <SubscriptionPanel customerId={customerId} />
+            <SimulatorPanel customerId={customerId} customerType={customerType} />
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.15s both" }}>
-            <UsagePanel customerId={customerId} />
+            <SubscriptionPanel customerId={customerId} />
           </div>
 
           <div style={{ animation: "fadeUp 0.4s ease 0.2s both" }}>
-            <EventsPanel customerId={customerId} />
+            <UsagePanel customerId={customerId} />
           </div>
 
-          {/* Footer */}
+          <div style={{ animation: "fadeUp 0.4s ease 0.25s both" }}>
+            <EventLogPanel customerId={customerId} />
+          </div>
+
           <div style={{
-            marginTop: "1.5rem", padding: "0.85rem 1rem",
+            marginTop: "1.5rem", padding: "0.75rem 1rem",
             background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10,
-            fontSize: "0.72rem", color: "#9ca3af",
-            fontFamily: "'JetBrains Mono', monospace",
-            display: "flex", alignItems: "center", gap: "0.5rem",
-            animation: "fadeUp 0.4s ease 0.25s both",
+            fontSize: "0.68rem", color: "#9ca3af", fontFamily: "'JetBrains Mono', monospace",
+            animation: "fadeUp 0.4s ease 0.3s both",
           }}>
-            <span style={{ color: "#6366f1" }}>ℹ</span>
-            All panels update live via Convex subscriptions. Kinde webhooks typically arrive within a few seconds of a billing event.
+            All state is stored in Convex and updates reactively via useQuery. No polling.
+            In production, Kinde fires the webhooks automatically — no simulator needed.
           </div>
 
         </div>
