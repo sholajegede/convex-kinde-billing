@@ -252,9 +252,9 @@ export default function App() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body, #root { height: 100%; }
-        body { background: #f1f5f9; color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; display: flex; justify-content: center; }
-        #root { width: 100%; display: flex; justify-content: center; }
+        html, body { min-height: 100%; background: #f1f5f9; }
+        body { background: #f1f5f9; color: #111827; font-family: 'Sora', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+        #root { width: 100%; min-height: 100vh; background: #f1f5f9; display: flex; justify-content: center; }
         input:focus { border-color: #6366f1 !important; box-shadow: 0 0 0 3px rgba(99,102,241,0.12) !important; }
         @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
@@ -287,7 +287,7 @@ export default function App() {
               {[
                 { t: "Kinde fires webhook", c: "#6366f1" },
                 { t: "→", c: "#9ca3af" },
-                { t: "createWebhookHandler()", c: "#0891b2" },
+                { t: "kindeBilling.webhookHandler", c: "#0891b2" },
                 { t: "→", c: "#9ca3af" },
                 { t: "handleWebhookEvent()", c: "#059669" },
                 { t: "→", c: "#9ca3af" },

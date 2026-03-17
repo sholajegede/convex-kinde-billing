@@ -1,4 +1,3 @@
-cat > README.md << 'EOF'
 # convex-kinde-billing
 
 **Sync Kinde billing events into your Convex database in real-time.** Subscribe to plan changes, payment events, and metered usage — all reactive, all queryable, zero boilerplate.

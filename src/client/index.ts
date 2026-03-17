@@ -7,6 +7,15 @@ export type KindeBillingOptions = {
   KINDE_ISSUER_URL: string;
 };
 
+function formatPlanName(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  return raw
+    .replace(/^customer_/, "")
+    .replace(/_plan$/, "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export class KindeBilling {
   webhookHandler: ReturnType<typeof httpActionGeneric>;
 
@@ -66,15 +75,29 @@ export class KindeBilling {
         });
       }
 
+      const plan = data.plan as Record<string, unknown> | undefined;
+      const rawPlanId =
+        (data.plan_id as string) ||
+        (plan?.code as string) ||
+        (plan?.key as string) ||
+        undefined;
+      const planId = rawPlanId;
+      const planName = formatPlanName(rawPlanId);
+
+      const rawPeriodEnd = data.invoice_due_on || data.next_billing_date;
+      const currentPeriodEnd = rawPeriodEnd
+        ? new Date((rawPeriodEnd as string).replace(/([+-]\d{2})$/, '$1:00')).getTime() || undefined
+        : undefined;
+
       await ctx.runMutation(component_.lib.handleWebhookEvent, {
         eventType,
         customerId,
         customerType: customerType as "user" | "org",
         payload: JSON.stringify(payload),
-        planId: (data.plan_id as string) || undefined,
-        planName: (data.plan_name as string) || undefined,
+        planId,
+        planName,
         agreementId: (data.agreement_id as string) || undefined,
-        currentPeriodEnd: (data.next_billing_date as number) || undefined,
+        currentPeriodEnd,
         meterId: (data.meter_id as string) || undefined,
         quantity: (data.quantity as number) || undefined,
       });
