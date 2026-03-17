@@ -6,6 +6,7 @@ const mockComponent = {
     getSubscription: {} as never,
     hasActivePlan: {} as never,
     getActivePlan: {} as never,
+    hasFeature: {} as never,
     listBillingEvents: {} as never,
     getUsage: {} as never,
     handleWebhookEvent: {} as never,

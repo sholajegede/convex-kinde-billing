@@ -36,13 +36,6 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         },
         Name
       >;
-      getPortalUrl: FunctionReference<
-        "action",
-        "internal",
-        { orgCode?: string; returnUrl?: string; userId: string },
-        { url: string },
-        Name
-      >;
       getSubscription: FunctionReference<
         "query",
         "internal",

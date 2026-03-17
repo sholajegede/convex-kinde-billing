@@ -128,6 +128,34 @@ export class KindeBilling {
     return `${domain}/oauth2/auth?${params.toString()}`;
   }
 
+  /**
+   * Get a self-serve portal URL using the logged-in user's Kinde access token.
+   * Call this client-side.
+   *
+   * @example
+   * const url = await kindeBilling.getPortalUrl(userAccessToken, {
+   *   returnUrl: "https://yourapp.com/settings",
+   * });
+   * window.location.href = url;
+   */
+  async getPortalUrl(
+    userAccessToken: string,
+    options?: { returnUrl?: string; subNav?: string },
+  ): Promise<string> {
+    const params = new URLSearchParams();
+    if (options?.returnUrl) params.set("return_url", options.returnUrl);
+    if (options?.subNav) params.set("sub_nav", options.subNav);
+    const url = `${this.options.KINDE_ISSUER_URL}/account_api/v1/portal_link${params.toString() ? "?" + params.toString() : ""}`;
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${userAccessToken}` },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to get portal link: ${res.status} ${await res.text()}`);
+    }
+    const data = (await res.json()) as { url: string };
+    return data.url;
+  }
+
   async getSubscription(ctx: RunQueryCtx, args: { customerId: string }) {
     return await ctx.runQuery(this.component.lib.getSubscription, args);
   }
@@ -151,19 +179,8 @@ export class KindeBilling {
   async getUsage(ctx: RunQueryCtx, args: { customerId: string; meterId: string; limit?: number }) {
     return await ctx.runQuery(this.component.lib.getUsage, args);
   }
-
-  async getPortalUrl(
-    ctx: RunActionCtx,
-    args: { userId: string; returnUrl?: string; orgCode?: string },
-  ): Promise<{ url: string }> {
-    return await ctx.runAction(this.component.lib.getPortalUrl, args);
-  }
 }
 
 type RunQueryCtx = {
   runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
-};
-
-type RunActionCtx = {
-  runAction: GenericActionCtx<GenericDataModel>["runAction"];
 };

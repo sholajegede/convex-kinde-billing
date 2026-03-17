@@ -144,72 +144,6 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
   );
 }
 
-function BillingActionsPanel({ customerId: _customerId }: { customerId: string }) {
-  const kindeIssuerUrl = import.meta.env.VITE_KINDE_ISSUER_URL as string;
-  const kindeClientId = import.meta.env.VITE_KINDE_CLIENT_ID as string;
-
-  const checkoutUrl = kindeIssuerUrl && kindeClientId
-    ? `${kindeIssuerUrl}/oauth2/auth?response_type=code&client_id=${kindeClientId}&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=openid%20profile%20email&plan_interest=customer_pro_plan`
-    : null;
-
-  return (
-    <div style={{ background: "#fff", border: "1.5px solid #e5e7eb", borderRadius: 16, overflow: "hidden", marginBottom: "1rem" }}>
-      <div style={{ padding: "1rem 1.25rem", background: "#f9fafb", borderBottom: "1px solid #e5e7eb" }}>
-        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "#111827" }}>Billing Actions</div>
-        <div style={{ fontSize: "0.7rem", color: "#9ca3af", marginTop: 2 }}>
-          Kinde-hosted checkout and self-serve billing portal
-        </div>
-      </div>
-      <div style={{ padding: "1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        {checkoutUrl && (
-          <a
-            href={checkoutUrl}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "0.6rem 1.25rem", borderRadius: 8,
-              background: "#6366f1", color: "#fff",
-              fontSize: "0.78rem", fontWeight: 700,
-              textDecoration: "none", fontFamily: "'Sora', sans-serif",
-              border: "1.5px solid #6366f1",
-            }}
-          >
-            Upgrade to Pro →
-          </a>
-        )}
-        <a
-          href={`${import.meta.env.VITE_KINDE_ISSUER_URL || "https://app.kinde.com"}/profile`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "inline-flex", alignItems: "center",
-            padding: "0.6rem 1.25rem", borderRadius: 8,
-            background: "#fff", color: "#374151",
-            fontSize: "0.78rem", fontWeight: 700,
-            cursor: "pointer", fontFamily: "'Sora', sans-serif",
-            border: "1.5px solid #e5e7eb", textDecoration: "none",
-          }}
-        >
-          Manage Billing
-        </a>
-        <div style={{
-          width: "100%", marginTop: "0.5rem",
-          padding: "0.65rem 0.85rem", background: "#f9fafb",
-          borderRadius: 8, border: "1px solid #e5e7eb",
-          fontSize: "0.68rem", color: "#9ca3af",
-          fontFamily: "'JetBrains Mono', monospace",
-        }}>
-          <span style={{ color: "#6366f1" }}>getCheckoutUrl()</span>
-          {" "}→ Kinde-hosted checkout ·{" "}
-          <span style={{ color: "#0891b2" }}>&lt;PortalLink&gt;</span>
-          {" "}→ Kinde self-serve portal via auth SDK ·{" "}
-          <span style={{ color: "#059669" }}>getPortalUrl()</span>
-          {" "}→ server-side portal via M2M
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function UsagePanel({ customerId }: { customerId: string }) {
   const usage = useQuery(api.example.getUsage, { customerId, meterId: "api_calls" });
   const total = usage?.reduce((sum, r) => sum + r.quantity, 0) ?? 0;
@@ -412,11 +346,6 @@ export default function App() {
           <div style={{ animation: "fadeUp 0.4s ease 0.1s both" }}>
             <SubscriptionPanel customerId={customerId} />
           </div>
-
-          <div style={{ animation: "fadeUp 0.4s ease 0.15s both" }}>
-            <BillingActionsPanel customerId={customerId} />
-          </div>
-
           <div style={{ animation: "fadeUp 0.4s ease 0.2s both" }}>
             <UsagePanel customerId={customerId} />
           </div>

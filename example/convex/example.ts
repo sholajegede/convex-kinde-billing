@@ -1,4 +1,4 @@
-import { action, query, mutation } from "./_generated/server.js";
+import { query, mutation } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
 import { KindeBilling } from "../../src/client/index.js";
 import { v } from "convex/values";
@@ -46,17 +46,6 @@ export const getUsage = query({
   args: { customerId: v.string(), meterId: v.string() },
   handler: async (ctx, args) => {
     return await kindeBilling.getUsage(ctx, args);
-  },
-});
-
-export const getPortalUrl = action({
-  args: {
-    userId: v.string(),
-    returnUrl: v.optional(v.string()),
-    orgCode: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    return await kindeBilling.getPortalUrl(ctx, args);
   },
 });
 
