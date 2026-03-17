@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Update to README
+
 ## 0.1.1
 
 - Remove CI badge from README
