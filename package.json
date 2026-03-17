@@ -1,7 +1,10 @@
 {
   "name": "convex-kinde-billing",
   "description": "Sync Kinde billing events into Convex reactively. Real-time subscription state, payment tracking, and metered usage.",
-  "repository": "github:sholajegede/convex-kinde-billing",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sholajegede/convex-kinde-billing.git"
+  },
   "homepage": "https://github.com/sholajegede/convex-kinde-billing#readme",
   "bugs": {
     "url": "https://github.com/sholajegede/convex-kinde-billing/issues"
