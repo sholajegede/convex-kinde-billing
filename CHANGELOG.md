@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+
+- feat: use PortalLink for self-serve portal, document M2M path for server-side
+  apps
+
 ## 0.1.8
 
 - feat: add getCheckoutUrl, getPortalUrl, hasFeature, ManageBillingButton
