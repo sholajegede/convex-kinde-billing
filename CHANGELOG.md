@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- remove M2M — pure webhook-driven component
+
 ## 0.1.2
 
 - Update to README
