@@ -26,19 +26,8 @@ export class KindeBilling {
   ) {
     return await ctx.runQuery(this.component.lib.getUsage, args);
   }
-
-  async recordMeterUsage(
-    ctx: RunActionCtx,
-    args: { agreementId: string; featureCode: string; quantity: number },
-  ): Promise<{ success: boolean }> {
-    return await ctx.runAction(this.component.lib.recordMeterUsage, args);
-  }
 }
 
 type RunQueryCtx = {
   runQuery: GenericActionCtx<GenericDataModel>["runQuery"];
-};
-
-type RunActionCtx = {
-  runAction: GenericActionCtx<GenericDataModel>["runAction"];
 };

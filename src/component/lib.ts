@@ -1,6 +1,5 @@
 import { v } from "convex/values";
 import {
-  action,
   mutation,
   query,
 } from "./_generated/server.js";
@@ -44,6 +43,8 @@ const usageRecordValidator = v.object({
   quantity: v.number(),
   recordedAt: v.number(),
 });
+
+// ─── Public queries ───────────────────────────────────────────────────────────
 
 export const getSubscription = query({
   args: { customerId: v.string() },
@@ -126,6 +127,8 @@ export const getUsage = query({
       .take(args.limit ?? 100);
   },
 });
+
+// ─── Public mutations ─────────────────────────────────────────────────────────
 
 export const handleWebhookEvent = mutation({
   args: {
@@ -239,70 +242,5 @@ export const handleWebhookEvent = mutation({
     }
 
     return null;
-  },
-});
-
-export const recordMeterUsage = action({
-  args: {
-    agreementId: v.string(),
-    featureCode: v.string(),
-    quantity: v.number(),
-  },
-  returns: v.object({ success: v.boolean() }),
-  handler: async (_ctx, args) => {
-    const kindeDomain = process.env.KINDE_DOMAIN;
-    const clientId = process.env.KINDE_M2M_CLIENT_ID;
-    const clientSecret = process.env.KINDE_M2M_CLIENT_SECRET;
-
-    if (!kindeDomain || !clientId || !clientSecret) {
-      throw new Error(
-        "Missing required env vars: KINDE_DOMAIN, KINDE_M2M_CLIENT_ID, KINDE_M2M_CLIENT_SECRET",
-      );
-    }
-
-    // Fetch M2M access token via client credentials grant
-    const tokenRes = await fetch(`${kindeDomain}/oauth2/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: clientId,
-        client_secret: clientSecret,
-        audience: `${kindeDomain}/api`,
-      }),
-    });
-
-    if (!tokenRes.ok) {
-      throw new Error(
-        `Failed to obtain Kinde M2M token: ${tokenRes.status} ${await tokenRes.text()}`,
-      );
-    }
-
-    const { access_token } = (await tokenRes.json()) as { access_token: string };
-
-    // Submit metered usage to Kinde Management API
-    const usageRes = await fetch(
-      `${kindeDomain}/api/v1/billing/meter_usage`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${access_token}`,
-        },
-        body: JSON.stringify({
-          agreement_id: args.agreementId,
-          feature_code: args.featureCode,
-          quantity: args.quantity,
-        }),
-      },
-    );
-
-    if (!usageRes.ok) {
-      throw new Error(
-        `Failed to record meter usage: ${usageRes.status} ${await usageRes.text()}`,
-      );
-    }
-
-    return { success: true };
   },
 });

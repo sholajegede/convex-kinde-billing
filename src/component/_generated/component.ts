@@ -108,12 +108,5 @@ export type ComponentApi<Name extends string | undefined = string | undefined> =
         }>,
         Name
       >;
-      recordMeterUsage: FunctionReference<
-        "action",
-        "internal",
-        { agreementId: string; featureCode: string; quantity: number },
-        { success: boolean },
-        Name
-      >;
     };
   };

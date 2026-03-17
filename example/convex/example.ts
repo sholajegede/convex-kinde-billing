@@ -2,7 +2,6 @@ import { query, mutation } from "./_generated/server.js";
 import { components } from "./_generated/api.js";
 import { KindeBilling } from "../../src/client/index.js";
 import { v } from "convex/values";
-import { api } from "./_generated/api.js";
 
 const kindeBilling = new KindeBilling(components.convexKindeBilling);
 
