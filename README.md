@@ -587,6 +587,9 @@ export const getUserWithBilling = query({
 
 ## Testing
 
+This package exports a `src/test.ts` helper for use with [`convex-test`](https://www.npmjs.com/package/convex-test). It re-exports the component schema so you can write unit tests against your billing logic without a live Convex deployment.
+
+
 ```ts
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
