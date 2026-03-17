@@ -25,8 +25,6 @@ await kindeBilling.recordMeterUsage(ctx, {
 });
 ```
 
----
-
 ## What this does
 
 Kinde fires webhook events every time a billing action occurs — plan assigned, payment succeeded, subscription cancelled. Without this component, you have to write and maintain your own webhook handler, JWT verification, database schema, and reactive queries.
@@ -36,8 +34,6 @@ This component owns all of that. Drop it in, mount the webhook, and your Convex 
 **What makes this unique:** `recordMeterUsage` calls the Kinde Management API directly from your Convex backend, submitting usage data for metered billing features. Every other Convex billing component is receive-only. This one lets you write back to your billing provider too.
 
 > **Webhook timing:** After a billing action occurs in Kinde (plan assigned, payment succeeded, etc.), there is a short delay — usually a few seconds — before the webhook arrives and your Convex data updates. During this window, `hasActivePlan()` may still reflect the previous state. Once the webhook arrives, Convex's real-time reactivity propagates the change to all subscribers instantly. No polling needed.
-
----
 
 ## Table of Contents
 
@@ -57,8 +53,6 @@ This component owns all of that. Drop it in, mount the webhook, and your Convex 
 - [Contributing](#contributing)
 - [Changelog](#changelog)
 
----
-
 ## Install
 
 ```bash
@@ -66,8 +60,6 @@ npm install convex-kinde-billing
 ```
 
 **Requirements:** Convex v1.33.1 or later, Node.js 18+
-
----
 
 ## Quick Start
 
@@ -92,7 +84,7 @@ export default app;
 In your [Convex Dashboard](https://dashboard.convex.dev) → **Settings → Environment Variables**:
 
 | Variable | Required | Description |
-|---|---|---|
+||||
 | `KINDE_DOMAIN` | Only for `recordMeterUsage` | Your Kinde domain, e.g. `https://yourbusiness.kinde.com` |
 | `KINDE_M2M_CLIENT_ID` | Only for `recordMeterUsage` | Client ID from a Kinde M2M application |
 | `KINDE_M2M_CLIENT_SECRET` | Only for `recordMeterUsage` | Client secret from a Kinde M2M application |
@@ -147,8 +139,6 @@ export const kindeBilling = new KindeBilling(components.convexKindeBilling);
 
 Import `kindeBilling` from this module in any file that needs billing queries or actions.
 
----
-
 ## Setup
 
 ### Complete file examples
@@ -199,8 +189,6 @@ http.route({
 
 export default http;
 ```
-
----
 
 ## Usage
 
@@ -324,8 +312,6 @@ export const accessAdvancedAnalytics = query({
 });
 ```
 
----
-
 ## API Reference
 
 ### `KindeBilling` class
@@ -340,7 +326,7 @@ const kindeBilling = new KindeBilling(components.convexKindeBilling);
 #### Methods
 
 | Method | Context | Args | Returns | Description |
-|---|---|---|---|---|
+||||||
 | `getSubscription` | query or action | `{ customerId: string }` | `Subscription \| null` | Full subscription record for a customer |
 | `hasActivePlan` | query or action | `{ customerId: string }` | `boolean` | Whether the customer has `status === "active"` |
 | `getActivePlan` | query or action | `{ customerId: string }` | `PlanSummary \| null` | Current plan name, ID, and period end |
@@ -357,8 +343,6 @@ Returns an HTTP action that verifies and processes all incoming Kinde billing we
 ```ts
 import { createWebhookHandler } from "convex-kinde-billing";
 ```
-
----
 
 ## Type Reference
 
@@ -417,14 +401,12 @@ type UsageRecord = {
 };
 ```
 
----
-
 ## Webhook Events
 
 All 8 Kinde billing webhook events are handled automatically. Every event is also written to the `billingEvents` table — giving you a full, queryable audit log.
 
 | Event | What triggers it | Subscription result | Notes |
-|---|---|---|---|
+|||||
 | `customer.plan_assigned` | Customer is associated with a plan in Kinde | Created or updated → `active` | |
 | `customer.agreement_created` | Customer signs up to a plan (contract created in Stripe) | Created or updated → `active` | `agreementId` stored — required for metered usage |
 | `customer.plan_changed` | Customer upgrades or downgrades their plan | Updated → `active`, plan details refreshed | |
@@ -446,7 +428,6 @@ Kinde webhooks are RS256-signed JWTs. The component verifies every request witho
 
 There is no webhook secret to configure, rotate, or leak. The JWKS URL is derived from the token itself.
 
----
 
 ## Database Schema
 
@@ -457,7 +438,7 @@ Three isolated tables, prefixed with `convexKindeBilling:` in the Convex dashboa
 One row per customer. Updated in-place on every billing event that changes status or plan.
 
 | Field | Type | Description |
-|---|---|---|
+||||
 | `customerId` | `string` | Kinde `user_id` or `org_code` |
 | `customerType` | `"user" \| "org"` | B2C user or B2B organisation |
 | `planId` | `string?` | Kinde plan identifier |
@@ -473,7 +454,7 @@ One row per customer. Updated in-place on every billing event that changes statu
 Append-only. One row per webhook received — never modified or deleted.
 
 | Field | Type | Description |
-|---|---|---|
+||||
 | `customerId` | `string` | Kinde `user_id` or `org_code` |
 | `eventType` | `string` | e.g. `customer.plan_assigned` |
 | `payload` | `string` | Full verified JWT payload, JSON stringified |
@@ -484,13 +465,12 @@ Append-only. One row per webhook received — never modified or deleted.
 One row per `recordMeterUsage` call or `customer.meter_usage_updated` webhook.
 
 | Field | Type | Description |
-|---|---|---|
+||||
 | `customerId` | `string` | Kinde `user_id` or `org_code` |
 | `meterId` | `string` | Feature code (e.g. `api_calls`) |
 | `quantity` | `number` | Usage quantity submitted |
 | `recordedAt` | `number` | Unix ms timestamp |
 
----
 
 ## Customer IDs
 
@@ -503,7 +483,6 @@ When calling query methods, pass:
 - B2C: Kinde `user_id` (e.g. `kp_abc123`)
 - B2B: Kinde `org_code` (e.g. `org_abc123`)
 
----
 
 ## Using with `kinde-sync`
 
@@ -534,7 +513,6 @@ export const getUserWithBilling = query({
 
 One `userId` ties together synced user profiles and live billing state — no extra mapping required.
 
----
 
 ## Testing
 
@@ -603,7 +581,6 @@ test("cancelled after agreement_cancelled", async () => {
 
 > **Note on `recordMeterUsage` in tests:** This action calls the Kinde Management API externally. In a test environment without `KINDE_DOMAIN`, `KINDE_M2M_CLIENT_ID`, and `KINDE_M2M_CLIENT_SECRET` set, it will throw `"Missing required env vars: KINDE_DOMAIN, KINDE_M2M_CLIENT_ID, KINDE_M2M_CLIENT_SECRET"` — which is the expected and correct behaviour for an isolated test.
 
----
 
 ## Limitations
 
@@ -617,7 +594,6 @@ test("cancelled after agreement_cancelled", async () => {
 
 **Metered usage is fire-and-forget.** `recordMeterUsage` submits to Kinde and does not get the updated balance back in the same call. The `customer.meter_usage_updated` webhook from Kinde brings the updated state into Convex after the fact.
 
----
 
 ## Troubleshooting
 
@@ -661,19 +637,16 @@ The `agreementId` or `featureCode` doesn't exist in Kinde. Confirm the `agreemen
 **Component tables not visible in the Convex dashboard**
 The tables live under the `convexKindeBilling` component namespace. In the Convex dashboard, use the component selector dropdown (top of the Data tab) to switch to the component's namespace.
 
----
 
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, running tests locally, and the publishing process.
 
----
 
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md)
 
----
 
 ## License
 
