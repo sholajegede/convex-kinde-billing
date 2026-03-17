@@ -3,7 +3,9 @@ import { components } from "./_generated/api.js";
 import { KindeBilling } from "../../src/client/index.js";
 import { v } from "convex/values";
 
-const kindeBilling = new KindeBilling(components.convexKindeBilling);
+const kindeBilling = new KindeBilling(components.convexKindeBilling, {
+  KINDE_ISSUER_URL: process.env.KINDE_ISSUER_URL!,
+});
 
 export const getSubscription = query({
   args: { customerId: v.string() },

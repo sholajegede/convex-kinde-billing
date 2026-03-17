@@ -1,8 +1,21 @@
-import { expect, test } from "vitest";
+import { describe, it } from "vitest";
 import { KindeBilling } from "./index.js";
 
-test("KindeBilling class can be instantiated", () => {
-  const mockComponent = {} as any;
-  const billing = new KindeBilling(mockComponent);
-  expect(billing).toBeDefined();
+const mockComponent = {
+  lib: {
+    getSubscription: {} as never,
+    hasActivePlan: {} as never,
+    getActivePlan: {} as never,
+    listBillingEvents: {} as never,
+    getUsage: {} as never,
+    handleWebhookEvent: {} as never,
+  },
+} as never;
+
+describe("KindeBilling", () => {
+  it("instantiates with options", () => {
+    new KindeBilling(mockComponent, {
+      KINDE_ISSUER_URL: "https://example.kinde.com",
+    });
+  });
 });

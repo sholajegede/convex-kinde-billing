@@ -244,7 +244,7 @@ function EventLogPanel({ customerId }: { customerId: string }) {
 }
 
 export default function App() {
-  const [customerId, setCustomerId] = useState("kp_3afee16200654378884af9a09dab7d8c");
+  const [customerId, setCustomerId] = useState("customer_019865139a9b96b5bb666f8441f2d73c");
   const [customerType, setCustomerType] = useState<"user" | "org">("user");
 
   return (
