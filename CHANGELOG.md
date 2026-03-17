@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- replace httpHandler with KindeBilling class webhook, require KINDE_ISSUER_URL
+
 ## 0.1.4
 
 - webhook-only demo, real customer ID, remove simulator
