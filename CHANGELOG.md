@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.11
+
+- docs: document src/test.ts helper in README
+
 ## 0.1.10
 
 - fix: remove M2M from portal, use Kinde Account API with user access token
