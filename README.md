@@ -339,7 +339,20 @@ After checkout, Kinde fires `customer.plan_assigned` and `customer.agreement_cre
 
 ## Self-Serve Portal
 
-`getPortalUrl()` generates a one-time URL that sends users to Kinde's self-serve billing portal, where they can manage or cancel their subscription.
+### Option A — Using Kinde's React SDK (most apps)
+
+If your app uses `@kinde-oss/kinde-auth-react`, use `<PortalLink>` directly — no backend call, no M2M needed:
+```tsx
+import { PortalLink } from "@kinde-oss/kinde-auth-react";
+
+<PortalLink>Manage Billing</PortalLink>
+```
+
+Kinde generates the one-time portal URL client-side from the logged-in user's session.
+
+### Option B — Server-side / without Kinde Auth SDK
+
+If you are not using Kinde's auth SDK, use `getPortalUrl()` which calls the Kinde Management API server-side:
 ```ts
 export const getBillingPortalUrl = action({
   args: { userId: v.string(), returnUrl: v.optional(v.string()) },
@@ -363,13 +376,22 @@ return await kindeBilling.getPortalUrl(ctx, {
 });
 ```
 
-> **Requires M2M credentials.** Set `KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET` in your Convex environment variables.
+> **Requires M2M credentials.** Set `KINDE_M2M_CLIENT_ID` and `KINDE_M2M_CLIENT_SECRET` in your Convex environment variables. To get them: Kinde → **Applications → Add application → Machine to machine** → copy Client ID and Secret → under **APIs**, enable the Kinde Management API.
 
 ## React Components
 
-### `ManageBillingButton`
+### `<PortalLink>` — Kinde Auth SDK (recommended)
 
-Drop-in button that calls `getPortalUrl` and redirects the user to the Kinde billing portal.
+If you use `@kinde-oss/kinde-auth-react`, use Kinde's built-in component. No M2M, no backend call:
+```tsx
+import { PortalLink } from "@kinde-oss/kinde-auth-react";
+
+<PortalLink>Manage Billing</PortalLink>
+```
+
+### `ManageBillingButton` — without Kinde Auth SDK
+
+For apps not using Kinde's React SDK, `ManageBillingButton` calls `getPortalUrl` server-side. Requires M2M credentials.
 ```tsx
 import { ManageBillingButton } from "convex-kinde-billing/react";
 import { api } from "../convex/_generated/api";

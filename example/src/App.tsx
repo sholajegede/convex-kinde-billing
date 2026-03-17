@@ -1,6 +1,7 @@
-import { useQuery, useAction } from "convex/react";
+import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useState } from "react";
+import { PortalLink } from "@kinde-oss/kinde-auth-react/components";
 
 const STATUS_COLOR: Record<string, string> = {
   active: "#10b981",
@@ -143,26 +144,9 @@ function SubscriptionPanel({ customerId }: { customerId: string }) {
   );
 }
 
-function BillingActionsPanel({ customerId }: { customerId: string }) {
-  const getPortalUrl = useAction(api.example.getPortalUrl);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const kindeClientId = import.meta.env.VITE_KINDE_CLIENT_ID as string;
+function BillingActionsPanel({ customerId: _customerId }: { customerId: string }) {
   const kindeIssuerUrl = import.meta.env.VITE_KINDE_ISSUER_URL as string;
-
-  const handleManageBilling = async () => {
-    setPortalLoading(true);
-    try {
-      const { url } = await getPortalUrl({
-        userId: customerId,
-        returnUrl: window.location.href,
-      });
-      window.location.href = url;
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setPortalLoading(false);
-    }
-  };
+  const kindeClientId = import.meta.env.VITE_KINDE_CLIENT_ID as string;
 
   const checkoutUrl = kindeIssuerUrl && kindeClientId
     ? `${kindeIssuerUrl}/oauth2/auth?response_type=code&client_id=${kindeClientId}&redirect_uri=${encodeURIComponent(window.location.origin)}&scope=openid%20profile%20email&plan_interest=customer_pro_plan`
@@ -192,22 +176,18 @@ function BillingActionsPanel({ customerId }: { customerId: string }) {
             Upgrade to Pro →
           </a>
         )}
-        <button
-          onClick={handleManageBilling}
-          disabled={portalLoading}
+        <PortalLink
           style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
+            display: "inline-flex", alignItems: "center",
             padding: "0.6rem 1.25rem", borderRadius: 8,
             background: "#fff", color: "#374151",
             fontSize: "0.78rem", fontWeight: 700,
-            cursor: portalLoading ? "not-allowed" : "pointer",
-            fontFamily: "'Sora', sans-serif",
-            border: "1.5px solid #e5e7eb",
-            opacity: portalLoading ? 0.6 : 1,
+            cursor: "pointer", fontFamily: "'Sora', sans-serif",
+            border: "1.5px solid #e5e7eb", textDecoration: "none",
           }}
         >
-          {portalLoading ? "Loading..." : "Manage Billing"}
-        </button>
+          Manage Billing
+        </PortalLink>
         <div style={{
           width: "100%", marginTop: "0.5rem",
           padding: "0.65rem 0.85rem", background: "#f9fafb",
@@ -216,9 +196,11 @@ function BillingActionsPanel({ customerId }: { customerId: string }) {
           fontFamily: "'JetBrains Mono', monospace",
         }}>
           <span style={{ color: "#6366f1" }}>getCheckoutUrl()</span>
-          {" "}→ Kinde-hosted checkout with plan_interest param ·{" "}
-          <span style={{ color: "#0891b2" }}>getPortalUrl()</span>
-          {" "}→ one-time self-serve portal link via M2M
+          {" "}→ Kinde-hosted checkout ·{" "}
+          <span style={{ color: "#0891b2" }}>&lt;PortalLink&gt;</span>
+          {" "}→ Kinde self-serve portal via auth SDK ·{" "}
+          <span style={{ color: "#059669" }}>getPortalUrl()</span>
+          {" "}→ server-side portal via M2M
         </div>
       </div>
     </div>
@@ -361,7 +343,7 @@ export default function App() {
               convex-kinde-billing
             </h1>
             <p style={{ fontSize: "0.8rem", color: "#6b7280", marginBottom: "1rem" }}>
-              Add Kinde billing to your Convex app. Reactive subscriptions, checkout, portal, and feature gating — all via webhooks.
+              Add Kinde billing to your Convex app. Reactive subscriptions, checkout, portal, and feature gating.
             </p>
             <div style={{
               display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
